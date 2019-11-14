@@ -15,7 +15,7 @@ samples <- gsub("_S\\d+_L001_R1_001.fastq\\.gz", "\\1", basename(samples))
 plotQualityProfile(fastqF[[177]])
 plotQualityProfile(fastqR[[177]])
 
-###They look good!!!! Trimming at 250 should be ok!! 
+###They look okish!!!! Trimming at 250 should be ok!! 
 
 filt_path <- "/SAN/Victors_playground/Ascaris_Microbiome/filtered"
 
@@ -37,7 +37,7 @@ out <- for(i in seq_along(fastqF)) {
                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
                     compress=TRUE, verbose=TRUE)}
 
-head(out)
+#head(out)
 
 ##In order to not eliminate samples that did not pass the filter 
 not.lost <- file.exists(filtFs) 
