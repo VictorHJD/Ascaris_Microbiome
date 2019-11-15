@@ -23,7 +23,13 @@ through the pipeline: dada2 detected loads of PCR chimreras (more than
 
 ### Do negative samples with reads/ASVs reported taxonomically diverse composition?
 
+### YES!
+
+![alt text](https://raw.githubusercontent.com/)
+
 ### Does proximity of samples on PCR plates predict higher compositonal similarity
+
+![alt text](https://raw.githubusercontent.com/)
 
 
 

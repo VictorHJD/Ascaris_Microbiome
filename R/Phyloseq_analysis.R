@@ -53,10 +53,9 @@ alphaDiv.PS <- plot_richness(PS, x= "Compartment", color = "Compartment" , measu
   #geom_boxplot()+
   geom_jitter(alpha= 0.005)+
   theme_bw()+
-  theme(axis.text.x = element_text(angle=90))+
-  labs(tag= "A)")
+  theme(axis.text.x = element_text(angle=90))
 
-pdf("Figures/Alphadiv_PCoA.pdf", width=10, height=8, onefile=T)
+png("Figures/Alphadiv_PCoA.png", units = 'in', res = 300, width=10, height=8)
 alphaDiv.PS
 dev.off()
 
@@ -65,11 +64,9 @@ ord.bray <- ordinate(PS, method="PCoA", distance="bray")
 
 betadiv.PS <- plot_ordination(PS, ord.bray, color = "AnimalSpecies")+
   theme_bw()+
-  geom_point(size=5, alpha= 0.75)+
-  labs(tag= "A)")
+  geom_point(size=5, alpha= 0.75)
 
-pdf("Figures/Betadiv_PCoA.pdf", 
-    width=10, height=8, onefile=T)
+png("Figures/Betadiv_PCoA.png", units = 'in', res = 300, width=10, height=8)
 betadiv.PS 
 dev.off()
 
