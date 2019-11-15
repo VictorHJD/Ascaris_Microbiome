@@ -23,13 +23,28 @@ through the pipeline: dada2 detected loads of PCR chimreras (more than
 
 ### Do negative samples with reads/ASVs reported taxonomically diverse composition?
 
-### YES!
+YES! The tree problemeatic samples with a high number of reads have
+also a diversity of ASVs.
 
-![Diversity!](https://raw.githubusercontent.com/VictorHJD/Ascaris_Microbiome/Figures/Alphadiv_PCoA.png )
+![See this figure](https://github.com/VictorHJD/Ascaris_Microbiome/blob/master/Figures/Alphadiv_PCoA.png)
+
+### Are contaminated negative samples similar in thier composition to samples in their physical proximity on PCR plates
+
+No! Negative samples are not particularly close in their composition to the samples surrounding them on PCR plates. 
+ 
+![See this figure](https://github.com/VictorHJD/Ascaris_Microbiome/blob/master/Figures/Betadiv_PCoA_label.png)
+
+NA are the negative controls.
 
 ### Does proximity of samples on PCR plates predict higher compositonal similarity
 
-![alt text](https://raw.githubusercontent.com/)
+Not sure. 
+
+![This seems to suggest,](https://github.com/VictorHJD/Ascaris_Microbiome/blob/master/Figures/CombiPCR_vs_bray.png) but the samples close to each other have are also from the same experimental group. This could be an effect of either. 
+
+
+
+
 
 
 
