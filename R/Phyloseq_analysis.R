@@ -40,10 +40,6 @@ dev.off()
 ##Eliminate "empty" samples 
 PS <- prune_samples(sample_sums(PS)>0, PS)
 
-##Separate by plate
-PS.plate1<- subset_samples(PS, Barcode_Plate=="A1")
-PS.plate2<- subset_samples(PS, Barcode_Plate=="A2")
-
 #Visualize alpha-diversity (raw data)
 alphaDiv.PS <- plot_richness(PS, x= "Compartment", color = "Compartment" , measures = c("Observed","Chao1", "Shannon")) +
   #geom_boxplot()+
