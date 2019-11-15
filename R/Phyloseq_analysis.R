@@ -118,8 +118,8 @@ CombiDist <- data.frame(plateX=c(as.vector(XposDist.1), as.vector(XposDist.2)),
 
 
 png("Figures/RowPCR_vs_bray.png", units = 'in', res = 300, width=6, height=4)
-ggplot(CombiDist, aes(plateCombi, bray, color=Plate)) +
-    geom_point(alpha=0.3, width=0.3, height=0) + 
+ggplot(CombiDist, aes(plateY, bray, color=Plate)) +
+    geom_jitter(alpha=0.3, width=0.3, height=0) + 
     stat_smooth(se=FALSE, method="lm") +
     scale_x_continuous("Physical row-distance on PCR plate") +
     scale_y_continuous("Curtis-Bray dissimilarity between samples") +
@@ -128,7 +128,7 @@ dev.off()
 
 png("Figures/ColumnPCR_vs_bray.png", units = 'in', res = 300, width=6, height=4)
 ggplot(CombiDist, aes(plateX, bray, color=Plate)) +
-    geom_point(alpha=0.3, width=0.3, height=0) + 
+    geom_jitter(alpha=0.3, width=0.3, height=0) + 
     stat_smooth(se=FALSE, method="lm") +
     scale_x_continuous("Physical column-distance on PCR plate") +
     scale_y_continuous("Curtis-Bray dissimilarity between samples") +
@@ -136,7 +136,7 @@ ggplot(CombiDist, aes(plateX, bray, color=Plate)) +
 dev.off()
 
 png("Figures/CombiPCR_vs_bray.png", units = 'in', res = 300, width=6, height=4)
-ggplot(CombiDist, aes(plateY, bray, color=Plate)) +
+ggplot(CombiDist, aes(plateCombi, bray, color=Plate)) +
     geom_jitter(alpha=0.3, width=0.3, height=0) + 
     stat_smooth(se=FALSE, method="lm") +
     scale_x_continuous("Combined physical distance on plate") +

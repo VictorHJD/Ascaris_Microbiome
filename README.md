@@ -16,8 +16,8 @@ Analysis of microbiome data from Ascaris infections in pigs
 
 The overall number of reads counted towards ASVs is very low: Starting
 from 5233526 filtered reads means less than 30% (1545224) made it
-through the pipeline: dada2 detected loads of PCR chimreras (more than
-50% of the reads)!!??
+through the pipeline: dada2 detected loads of *PCR chimreras* (more than
+*50% of the reads*)!!??
 
 ## Goal 2: Figure out whether (even how) cross-contamination between PCR wells is present 
 
