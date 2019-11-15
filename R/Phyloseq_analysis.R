@@ -1,34 +1,47 @@
-library(ggplot2)
-library(reshape)
+## library(ggplot2)
+## library(reshape)
 library(phyloseq)
-library(data.table)
-library(parallel)
 library(microbiome)
+
+## library(data.table)
+## library(parallel)
+
+reRun <- FALSE
 
 ##Load data 
 if(!exists("PS")){
-  source("Dada2_Pipeline.R")
+    if(isTRUE(reRun)){
+        source("Dada2_Pipeline.R") ## Run the script at base directory of repository!   
+    } else {
+        PS<- readRDS(file="/SAN/Victors_playground/Ascaris_Microbiome/PhyloSeqCombi.Rds")
+    }
 }
 
-#PS<- readRDS(file="/SAN/Victors_playground/Ascaris_Microbiome/PhyloSeqCombi.Rds")
-
+### ## inspect
 summarize_phyloseq(PS)
 rank_names(PS)
-hist(rowSums(otu_table(PS)))
-table(tax_table(PS)[, "Kingdom"], exclude = NULL) ## Mainly Bacteria, a bit of Eukaryota and Archaea
-table(tax_table(PS)[, "Phylum"], exclude = NULL)
-barplot.PS <- plot_bar(PS, fill = "Phylum") ##Without normalization
 
-##Rarefaction curves
+## hist(rowSums(otu_table(PS)), xlab="number of reads", ylab="number of samples")
+
+## ## HOW many ASVs for off-target eukaryotes and archaea
+table(tax_table(PS)[, "Kingdom"], exclude = NULL) ## ---> README results summary
+
+## ## HOW many reads for off-target eukaryotes and archaea
+by(t(otu_table(PS)), tax_table(PS)[, "Kingdom"], sum) ## --->  README results summary
+
+### which different phyla for each sample
+## barplot.PS <- plot_bar(PS, fill = "Phylum") ##Without normalization
+
+##Rarefaction curves TODO: COLOR BY sample type (best make rather a ggplot)
 rarcurv <- vegan::rarecurve(otu_table(PS),
                             label = T, xlab = "Read number", ylab = "ASVs")
 
-#pdf("~/GitProjects/Ascaris_Microbiome/Figures/Rarefaction_curves.pdf", 
-#    width=8, height=10, onefile=T)
-#rarcurv 
-#dev.off()
+pdf("Figures/Rarefaction_curves.pdf", 
+    width=8, height=10, onefile=T)
+rarcurv 
+dev.off()
 
-##Eliminate empty samples 
+##Eliminate "empty" samples 
 PS <- prune_samples(sample_sums(PS)>0, PS)
 
 ##Separate by plate
