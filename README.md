@@ -5,7 +5,7 @@ Analysis of microbiome data from Ascaris infections in pigs
 
 ### How many ASVs and reads
 
-|    ||Archaea   | Bacteria  |Eukaryota   |  NA |
+|    |Archaea   | Bacteria  |Eukaryota   |  NA |
 |---|---|---|---|---|
 |number ASVs   | 25  | 35588  |101   | 4  |
 |number Sequences   | 329  | 1542188  |2602   | 105  |
@@ -25,7 +25,7 @@ through the pipeline: dada2 detected loads of PCR chimreras (more than
 
 ### YES!
 
-![alt text](https://raw.githubusercontent.com/)
+![Diversity!](https://raw.githubusercontent.com/VictorHJD/Ascaris_Microbiome/Figures/Alphadiv_PCoA.png )
 
 ### Does proximity of samples on PCR plates predict higher compositonal similarity
 

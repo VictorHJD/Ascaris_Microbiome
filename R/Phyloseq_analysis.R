@@ -55,7 +55,7 @@ alphaDiv.PS <- plot_richness(PS, x= "Compartment", color = "Compartment" , measu
   theme_bw()+
   theme(axis.text.x = element_text(angle=90))
 
-png("Figures/Alphadiv_PCoA.png", units = 'in', res = 300, width=10, height=8)
+png("Figures/Alphadiv_PCoA.png", units = 'in', res = 300, width=4, height=3)
 alphaDiv.PS
 dev.off()
 
@@ -66,7 +66,7 @@ betadiv.PS <- plot_ordination(PS, ord.bray, color = "AnimalSpecies")+
   theme_bw()+
   geom_point(size=5, alpha= 0.75)
 
-png("Figures/Betadiv_PCoA.png", units = 'in', res = 300, width=10, height=8)
+png("Figures/Betadiv_PCoA.png", units = 'in', res = 300, width=4, height=3)
 betadiv.PS 
 dev.off()
 
