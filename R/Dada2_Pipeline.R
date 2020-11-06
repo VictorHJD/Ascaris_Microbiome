@@ -1,6 +1,6 @@
 ###Ascaris-Microbiome project (Ankur)
-library("MultiAmplicon")
-library("dada2")
+##library("MultiAmplicon") ##Not necessary for taxonomic assignment  
+library("dada2") ##Following pipeline for v1.16
 ###Load files 
 path <- "/SAN/Victors_playground/Ascaris_Microbiome/2018_22_Nem1/" # CHANGE ME to the directory containing the fastq files after unzipping.
 list.files(path)
@@ -12,10 +12,10 @@ samples <- gsub("S\\d+-", "\\1", basename(fastqF))
 samples <- gsub("_S\\d+_L001_R1_001.fastq\\.gz", "\\1", basename(samples))
 
 ###Check quality of the reads 
-plotQualityProfile(fastqF[[177]])
-plotQualityProfile(fastqR[[177]])
+plotQualityProfile(fastqF[10:11])
+plotQualityProfile(fastqR[10:11])
 
-###They look okish!!!! Trimming at 250 should be ok!! 
+###They look okish!!!!
 
 filt_path <- "/SAN/Victors_playground/Ascaris_Microbiome/filtered"
 
@@ -26,53 +26,29 @@ names(filtFs) <- samples
 filtRs <- file.path(filt_path, paste0(samples, "_R_filt.fastq.gz"))
 names(filtRs) <- samples
 
-#out<- filterAndTrim(fastqF, filtFs, fastqR, filtRs,
-#                truncLen=c(250,250), minLen=c(250,250), 
-#                maxN=0, maxEE=c(2,2), truncQ=2, rm.phix = TRUE,
-#                compress=TRUE, verbose=TRUE)
-
 out <- for(i in seq_along(fastqF)) {
         fastqPairedFilter(c(fastqF[i], fastqR[i]), c(filtFs[i], filtRs[i]),
-                    truncLen=c(240,250), 
+                    truncLen=c(240,240), ##This gives just 10bp overlap, Prev. conditions were 240,250 
                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
                     compress=TRUE, verbose=TRUE)}
 
-#head(out)
-
-##In order to not eliminate samples that did not pass the filter 
-not.lost <- file.exists(filtFs) 
-filtFs <- filtFs[not.lost]
-
-not.lostR <- file.exists(filtRs) 
-filtRs <- filtRs[not.lostR]
-
-###Dereplication
-derepFs <- derepFastq(filtFs, verbose=TRUE)
-derepRs <- derepFastq(filtRs, verbose=TRUE)
-
-# Name the derep-class objects by the sample names
-names(derepFs) <- samples[not.lost]
-names(derepRs) <- samples[not.lostR]
-
 ###Learning errors
-dadaFs.lrn <- dada(derepFs, err=NULL, selfConsist = TRUE, multithread=TRUE)
-errF <- dadaFs.lrn[[1]]$err_out
-dadaRs.lrn <- dada(derepRs, err=NULL, selfConsist = TRUE, multithread=TRUE)
-errR <- dadaRs.lrn[[1]]$err_out
-#errF <- learnErrors(filtFs, multithread=TRUE)
-#errR <- learnErrors(filtRs, multithread=TRUE)
+errF <- learnErrors(filtFs, multithread=TRUE)
+##100930560 total bases in 420544 reads from 15 samples will be used for learning the error rates.
+errR <- learnErrors(filtRs, multithread=TRUE)
+##100930560 total bases in 420544 reads from 15 samples will be used for learning the error rates.
 
 plotErrors(errF, nominalQ=TRUE)
 plotErrors(errR, nominalQ=TRUE)
 
 ##Sample inference 
-dadaFs <- dada(derepFs, err=errF, multithread=TRUE)
-dadaRs <- dada(derepRs, err=errR, multithread=TRUE)
+dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
 
 ##Merge paired reads
-mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=TRUE)
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
 # Inspect the merger data.frame from the first sample
-head(mergers[[2]])
+head(mergers[[1]])
 
 ##Construction of sequence table 
 seqtab <- makeSequenceTable(mergers)
@@ -80,10 +56,10 @@ dim(seqtab)
 
 # Inspect distribution of sequence lengths
 table(nchar(getSequences(seqtab))) ##Everything looks good but we have some short fragments 
-
-##Let's cut everything above 400 bp 
-seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 400:473]
-
+plot(table(nchar(getSequences(seqtab))))
+##Since our expected amplicon size is 460bp, Let's make an in silico cut: everything below 439 bp will be cutted 
+seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 439:468]
+plot(table(nchar(getSequences(seqtab2))))
 ##Remove chimeras 
 #seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
 #dim(seqtab.nochim)
@@ -91,7 +67,7 @@ seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 400:473]
 ##Use just the data with the expected size
 seqtab.nochim <- removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
 dim(seqtab.nochim)
-sum(seqtab.nochim)/sum(seqtab) ###Uuuu just 44% of the read pass... let's continue 
+sum(seqtab.nochim)/sum(seqtab) ###Uuuu just 41% of the read pass... let's continue 
 
 ###Track reads through the pipeline 
 getN <- function(x) sum(getUniques(x))
@@ -101,23 +77,32 @@ colnames(track) <- c("input", "filtered", "merged", "nonchim")
 rownames(track) <- samples
 head(track)
 
-##Taxonomic annotation
-taxa <- assignTaxonomy(seqtab.nochim, "/SAN/db/RDP/Silva_132/silva_nr_v132_train_set.fa.gz", multithread=TRUE)
-taxa <- addSpecies(taxa, "/SAN/db/RDP/silva_species_assignment_v123.fa.gz")
+##Taxonomic annotation using naive Bayesian classifier from dada2 with SILVA db version 138
+taxa <- assignTaxonomy(seqtab.nochim, "/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_nr99_v138_train_set.fa.gz", multithread=TRUE)
+taxa <- addSpecies(taxa, "/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_species_assignment_v138.fa.gz")
 
 taxa.print <- taxa # Removing sequence rownames for display only
 rownames(taxa.print) <- NULL
 head(taxa.print)
 
-##Using Multiamplicon function
-#taxa.MA <- blastTaxAnnot(seqtab.nochim,
-#                    db = "/SAN/db/blastdb/nt/nt",
-#                    negative_gilist = "/SAN/db/blastdb/uncultured.gi",
-#                    infasta = "/SAN/Victors_playground/Metabarcoding/AA_HMHZ/HMHZ2_2_in.fasta",
-#                    outblast = "/SAN/Victors_playground/Metabarcoding/AA_HMHZ/blast2_2_out.fasta",
-#                    taxonSQL = "/SAN/db/taxonomy/taxonomizr.sql", 
-#                    num_threads = 20)
 
+## Using IdTaxa taxonomic classification method (To be modified!)
+library(DECIPHER); packageVersion("DECIPHER")
+
+##Create a DNAString set from the ASVs
+dna <- DNAStringSet(getSequences(seqtab.nochim))
+##Load SILVA db version 138
+load("/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_nr99_v138_train_set.fa.gz") #
+ids <- IdTaxa(dna, trainingSet, strand="top", processors=NULL, verbose=FALSE) # use all processors
+ranks <- c("domain", "phylum", "class", "order", "family", "genus", "species") # ranks of interest
+# Convert the output object of class "Taxa" to a matrix analogous to the output from assignTaxonomy
+taxid <- t(sapply(ids, function(x) {
+  m <- match(ranks, x$rank)
+  taxa <- x$taxon[m]
+  taxa[startsWith(taxa, "unclassified_")] <- NA
+  taxa
+}))
+colnames(taxid) <- ranks; rownames(taxid) <- getSequences(seqtab.nochim)
 
 
 ##To phyloseq
