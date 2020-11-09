@@ -1,6 +1,11 @@
 ###Ascaris-Microbiome project (Ankur)
-##library("MultiAmplicon") ##Not necessary for taxonomic assignment  
 library("dada2") ##Following pipeline for v1.16
+
+Refil<- FALSE ##Turn to TRUE just if filter parameters are changed 
+Taxanot<- FALSE ##Turn to TRUE just in case new taxonomic assignment is required
+Phylobj<- TRUE ##Start from ASV matrix, Tax matrix 
+
+if(Refil){
 ###Load files 
 path <- "/SAN/Victors_playground/Ascaris_Microbiome/2018_22_Nem1/" # CHANGE ME to the directory containing the fastq files after unzipping.
 list.files(path)
@@ -61,13 +66,26 @@ plot(table(nchar(getSequences(seqtab))))
 seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 439:468]
 plot(table(nchar(getSequences(seqtab2))))
 ##Remove chimeras 
-#seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
-#dim(seqtab.nochim)
 
 ##Use just the data with the expected size
 seqtab.nochim <- removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
 dim(seqtab.nochim)
 sum(seqtab.nochim)/sum(seqtab) ###Uuuu just 41% of the read pass... let's continue 
+saveRDS(seqtab.nochim, "/SAN/Victors_playground/Ascaris_Microbiome/seqtab_final.rds") ##Final sequence table without chimeras
+}
+
+if(Taxanot){
+  seqtab.nochim<- readRDS("/SAN/Victors_playground/Ascaris_Microbiome/seqtab_final.rds")
+  
+##Create an ASV matrix with ASV as rows and samples as columns (for Alessio)
+asvmat <- t(seqtab.nochim) #Removing sequence rownames for display only
+asv.names <- as.data.frame(rownames(asvmat))
+rownames(asv.names) <- paste0("ASV", 1:nrow(asv.names))
+rownames(asvmat)<-NULL
+rownames(asvmat) <- paste0("ASV", 1:nrow(asvmat))
+colnames(asvmat) <- paste0("Sample", 1:ncol(asvmat))
+head(asvmat)
+write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/ASV_matrix.csv")
 
 ###Track reads through the pipeline 
 getN <- function(x) sum(getUniques(x))
@@ -80,37 +98,65 @@ head(track)
 ##Taxonomic annotation using naive Bayesian classifier from dada2 with SILVA db version 138
 taxa <- assignTaxonomy(seqtab.nochim, "/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_nr99_v138_train_set.fa.gz", multithread=TRUE)
 taxa <- addSpecies(taxa, "/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_species_assignment_v138.fa.gz")
+saveRDS(taxa, "/SAN/Victors_playground/Ascaris_Microbiome/tax_final.rds") ##Final taxonomy
 
-taxa.print <- taxa # Removing sequence rownames for display only
-rownames(taxa.print) <- NULL
-head(taxa.print)
+##Create an Taxa matrix with ASV as rows and taxonomic level as columns (for Alessio)
+taxamat <- taxa # Removing sequence rownames for display only
+rownames(taxamat) <- NULL
+rownames(taxamat) <- paste0("ASV", 1:nrow(taxamat))
+head(taxamat)
+write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Taxa_matrix.csv")
 
-
-## Using IdTaxa taxonomic classification method (To be modified!)
+##Transform seqtab.nochim to fasta file 
 library(DECIPHER); packageVersion("DECIPHER")
-
 ##Create a DNAString set from the ASVs
 dna <- DNAStringSet(getSequences(seqtab.nochim))
+names(dna)<- paste0("ASV", 1:length(dna)) ##Give short names to each sequence
+writeXStringSet(dna, "/SAN/Victors_playground/Ascaris_Microbiome/output/ASV.fasta") ##Export fasta seq
+
+##Create a Phylogenetic tree
+Align16S<- AlignSeqs(dna, anchor= NA, verbose= FALSE) ##Alignment
+
+phangAlign16S <- phyDat(as(Align16S, "matrix"), type="DNA")
+dm16S <- dist.ml(phangAlign16S) ## Distance matrix
+treeNJ16S <- NJ(dm16S) # Note, tip order != sequence order
+plot(treeNJ16S, type= "unrooted", use.edge.length= FALSE, no.margin= TRUE, show.tip.label= TRUE) ##Neighbour-Joining tree
+fit1 <- pml(treeNJ16S, data=phangAlign16S)
+fitGTR16S <- update(fit1, k=4, inv=0.2)
+fitGTR16S <- optim.pml(fitGTR16S, model="GTR", optInv=TRUE, optGamma=TRUE,
+                       rearrangement = "stochastic", control = pml.control(trace = 0))
+plot(fitGTR16S, type= "unrooted", use.edge.length= FALSE, no.margin= TRUE, show.tip.label= FALSE)
+
+#tree<- fitGTR16S$tree
+#save tree (to add)
+
+## Using IdTaxa taxonomic classification method (To be modified!)
 ##Load SILVA db version 138
-load("/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_nr99_v138_train_set.fa.gz") #
-ids <- IdTaxa(dna, trainingSet, strand="top", processors=NULL, verbose=FALSE) # use all processors
-ranks <- c("domain", "phylum", "class", "order", "family", "genus", "species") # ranks of interest
+#load("/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_nr99_v138_train_set.fa.gz") #
+#ids <- IdTaxa(dna, trainingSet, strand="top", processors=NULL, verbose=FALSE) # use all processors
+#ranks <- c("domain", "phylum", "class", "order", "family", "genus", "species") # ranks of interest
 # Convert the output object of class "Taxa" to a matrix analogous to the output from assignTaxonomy
-taxid <- t(sapply(ids, function(x) {
-  m <- match(ranks, x$rank)
-  taxa <- x$taxon[m]
-  taxa[startsWith(taxa, "unclassified_")] <- NA
-  taxa
-}))
-colnames(taxid) <- ranks; rownames(taxid) <- getSequences(seqtab.nochim)
+#taxid <- t(sapply(ids, function(x) {
+#  m <- match(ranks, x$rank)
+#  taxa <- x$taxon[m]
+#  taxa[startsWith(taxa, "unclassified_")] <- NA
+#  taxa
+#}))
+#colnames(taxid) <- ranks; rownames(taxid) <- getSequences(seqtab.nochim)
+}
 
-
+if(Phylobj){
+  ##Load matrices
+  asvmat<- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/output/ASV_matrix.csv")
+  taxamat<- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/output/Taxa_matrix.csv")
+  dna<- readDNAStringSet("/SAN/Victors_playground/Ascaris_Microbiome/output/ASV.fasta")
+  ##Load sample data
+  sample <- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/Pig_Ascaris_16S_Samples_barcode.csv", dec=",", stringsAsFactors=FALSE)
+  
 ##To phyloseq
 library(phyloseq)
 library(ggplot2)
 library(dplyr)
-
-samdata <- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/Pig_Ascaris_16S_Samples_barcode.csv", dec=",", stringsAsFactors=FALSE)
 
 #keep<- rownames(seqtab.nochim)
 ### Sample data includes those that didn't worked, so let's eliminate them 
@@ -118,13 +164,17 @@ samdata <- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/Pig_Ascaris_16S_
 #rownames(samdata) <- samdata$sample_names
 
 ##To make Phyloseq object
-
-asv<- otu_table(seqtab.nochim, taxa_are_rows=FALSE)
+##1) Use the ASV matrix and transform it to "OTU table" format
+asv<- otu_table(asvmat, taxa_are_rows = T)
 sample_names(asv)
-sample<- sample_data(samdata)
+##2) Use sample dataframe and transform it to "sample data" format
+sample<- sample_data(sample)
 sample_names(sample) <- sample_names(asv)
-tax<-tax_table(taxa)
+##3) Use taxa matrix and transform it to "tax table" format
+tax<-tax_table(taxamat)
 sample_names(tax)
+
+PS <- merge_phyloseq(asv, tax)
 
 ###Add phylogenetic tree
 require(ape)
@@ -132,6 +182,6 @@ phylotree<- rtree(ntaxa(PS), rooted=TRUE, tip.label=taxa_names(PS))
 
 PS <- merge_phyloseq(asv, sample, tax, phylotree)
 
-saveRDS(PS, file="/SAN/Victors_playground/Ascaris_Microbiome/PhyloSeqCombi.Rds") 
-
+saveRDS(PS, file="/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds") 
+}
 
