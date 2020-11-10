@@ -248,3 +248,8 @@ plot_ordination(PS1, ordination)+
   labs(tag= "D)")+
   theme_bw()+
   theme(text = element_text(size=16))
+
+asvmat.rare<- as.matrix(PS1@otu_table)
+taxmat.rare<- as.matrix(PS1@tax_table)
+write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.csv")
+write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Taxa_matrix.csv")
