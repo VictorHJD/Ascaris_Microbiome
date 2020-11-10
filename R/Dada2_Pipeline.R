@@ -148,7 +148,11 @@ plot(fitGTR16S, type= "unrooted", use.edge.length= FALSE, no.margin= TRUE, show.
 if(Phylobj){
   ##Load matrices
   asvmat<- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/output/ASV_matrix.csv")
+  rownames(asvmat)<-asvmat$X
+  asvmat$X<- NULL
   taxamat<- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/output/Taxa_matrix.csv")
+  rownames(taxamat)<-taxamat$X
+  taxamat$X<- NULL
   dna<- readDNAStringSet("/SAN/Victors_playground/Ascaris_Microbiome/output/ASV.fasta")
   ##Load sample data
   sample <- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/Pig_Ascaris_16S_Samples_barcode.csv", dec=",", stringsAsFactors=FALSE)

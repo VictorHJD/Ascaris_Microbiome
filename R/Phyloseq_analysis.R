@@ -9,20 +9,19 @@ if(!exists("PS")){
     if(isTRUE(reRun)){
         source("Dada2_Pipeline.R") ## Run the script at base directory of repository!   
     } else {
-        PS<- readRDS(file="/SAN/Victors_playground/Ascaris_Microbiome/PhyloSeqCombi.Rds")
+        #PS<- readRDS(file="/SAN/Victors_playground/Ascaris_Microbiome/PhyloSeqCombi.Rds") #Old annotation BLAST
+      PS<- readRDS(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds") ##New annotation SILVA
     }
 }
 
-### ## inspect
+### Inspect
 summarize_phyloseq(PS)
 rank_names(PS)
 
-## hist(rowSums(otu_table(PS)), xlab="number of reads", ylab="number of samples")
-
-## ## HOW many ASVs for off-target eukaryotes and archaea
+## HOW many ASVs for off-target eukaryotes and archaea
 table(tax_table(PS)[, "Kingdom"], exclude = NULL) ## ---> README results summary
 
-## ## HOW many reads for off-target eukaryotes and archaea
+## HOW many reads for off-target eukaryotes and archaea
 by(t(otu_table(PS)), tax_table(PS)[, "Kingdom"], sum) ## --->  README results summary
 
 ### which different phyla for each sample
@@ -62,7 +61,6 @@ png("Figures/Betadiv_PCoA.png", units = 'in', res = 300, width=8, height=4)
 betadiv.PS 
 dev.off()
 
-
 betadiv.PS.label <- plot_ordination(PS, ord.bray, color = "AnimalSpecies",
                                     label= "Barcode_Well", shape="Barcode_Plate")+
   theme_bw()
@@ -70,7 +68,6 @@ betadiv.PS.label <- plot_ordination(PS, ord.bray, color = "AnimalSpecies",
 png("Figures/Betadiv_PCoA_label.png", units = 'in', res = 300, width=8, height=4)
 betadiv.PS.label
 dev.off()
-
 
 ###Bray-Curtis dissimilarity
 
@@ -94,8 +91,6 @@ as_tibble(sdat.2) %>%
     mutate(Xpos = as.numeric(substr(Barcode_Well, 2, 2))) %>%
     select(BeGenDiv_Name, Barcode_Plate, Barcode_Well, Ypos, Xpos) -> sdatPos.2
 
-
-
 XposDist.1 <- dist(sdatPos.1$Xpos)
 XposDist.2 <- dist(sdatPos.2$Xpos)
 
@@ -111,7 +106,6 @@ CombiDist <- data.frame(plateX=c(as.vector(XposDist.1), as.vector(XposDist.2)),
                         bray=c(as.vector(dis.bray.1), as.vector(dis.bray.2)),
                         Plate=c(rep("A", times=length(XposDist.1)),
                                 rep("B", times=length(XposDist.2))))
-
 
 png("Figures/RowPCR_vs_bray.png", units = 'in', res = 300, width=6, height=4)
 ggplot(CombiDist, aes(plateY, bray, color=Plate)) +
@@ -140,3 +134,13 @@ ggplot(CombiDist, aes(plateCombi, bray, color=Plate)) +
     theme_bw()
 dev.off()
 
+##Filtering 
+##1) Sample filtering: Filtering samples with low counts  
+PS1 <- prune_samples(sample_sums(PS)>=6000, PS)
+##Filter low-occurrence, poorly-represented ASVs from this data
+##Remove ASVs that do not show appear more than 5 times in more than half the samples
+asvkeep<-genefilter_sample(PS, filterfun_sample(function(x) x > 5), A=0.5*nsamples(PS))
+PS1<- prune_taxa(asvkeep, PS)
+##Transform to even sampling depth
+PS1<- transform_sample_counts(PS1, function(x) 1E6 * x/sum(x))
+readcount(PS)
