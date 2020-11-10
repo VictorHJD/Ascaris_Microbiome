@@ -136,11 +136,57 @@ dev.off()
 
 ##Filtering 
 ##1) Sample filtering: Filtering samples with low counts  
-PS1 <- prune_samples(sample_sums(PS)>=6000, PS)
+PS1 <- prune_samples(sample_sums(PS)>=2000, PS)
+summarize_phyloseq(PS1)
 ##Filter low-occurrence, poorly-represented ASVs from this data
-##Remove ASVs that do not show appear more than 5 times in more than half the samples
-asvkeep<-genefilter_sample(PS, filterfun_sample(function(x) x > 5), A=0.5*nsamples(PS))
-PS1<- prune_taxa(asvkeep, PS)
+##Remove ASVs that do not show appear more than 2 times in more than half the samples
+#asvkeep<-genefilter_sample(PS1, filterfun_sample(function(x) x > 2), A=0.5*nsamples(PS1))
+#PS1<- prune_taxa(asvkeep, PS1)
 ##Transform to even sampling depth
-PS1<- transform_sample_counts(PS1, function(x) 1E6 * x/sum(x))
-readcount(PS)
+## Rarefy without replacement
+PS1<- rarefy_even_depth(PS1, rngseed=1, sample.size=0.9*min(sample_sums(PS1)), replace=F)
+readcount(PS1)
+
+## Merge ASVs that have the same taxonomy at a certain taxonomic rank (in this case Phylum and Family)
+PS.Fam<-  tax_glom(PS1, "Family", NArm = F)
+summarize_phyloseq(PS.Fam)
+
+PS.Phy<-  tax_glom(PS1, "Phylum", NArm = F)
+summarize_phyloseq(PS.Phy)
+
+plot_bar(PS.Phy, fill="Phylum") + facet_wrap(~Compartment, scales= "free_x", nrow=1)
+
+##Alpha diversity (rarefied)
+plot_richness(PS1, x= "Compartment", color = "Compartment" , measures = c("Observed","Chao1", "Shannon")) +
+  #geom_boxplot()+
+  geom_jitter(alpha= 0.005)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=90))
+
+alphadiv<- estimate_richness(PS1)
+pairwise.wilcox.test(alphadiv$Observed, sample_data(PS1)$Compartment)
+
+alphadiv%>%
+  rownames_to_column()->tmp1
+
+as.tibble(sample)%>%
+  mutate(rowname= paste0("Sample", 1:nrow(sample)))->tmp2
+
+tmp1<-inner_join(tmp1, tmp2, by="rowname")
+rownames(tmp1)<- tmp1$rowname
+tmp1$rowname<- NULL
+alphadiv<- tmp1
+rm(tmp1,tmp2)
+
+require(ggpubr)
+alphadiv%>%
+  ggplot(aes(x= Compartment, y= Observed))+
+  geom_boxplot(aes(color= Compartment))+
+  geom_point(aes(color=Compartment))+
+  xlab("Sample type")+
+  scale_color_brewer(palette = "Set3")+
+  labs(tag= "A)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Ascaris", paired = F, na.rm = TRUE)+
+  stat_compare_means(method =  "anova", label.y = 10.5, label.x = 2)
