@@ -138,13 +138,37 @@ dev.off()
 ##1) Sample filtering: Filtering samples with low counts  
 PS1 <- prune_samples(sample_sums(PS)>=2000, PS)
 summarize_phyloseq(PS1)
-##Filter low-occurrence, poorly-represented ASVs from this data
-##Remove ASVs that do not show appear more than 2 times in more than half the samples
-#asvkeep<-genefilter_sample(PS1, filterfun_sample(function(x) x > 2), A=0.5*nsamples(PS1))
-#PS1<- prune_taxa(asvkeep, PS1)
-##Transform to even sampling depth
+##2) Taxa filtering: Remove "uncharachterized" ASVs
+PS1<- subset_taxa(PS1, !is.na(Phylum) & !Phylum %in% c("", "uncharacterized"))
+
+##3) Taxa filtering: Remove low prevalent taxa
+##Create a prevalence dataframe 
+Prevdf<- apply(X = otu_table(PS1),
+                     MARGIN = 1,
+                     FUN = function(x){sum(x > 0)})
+
+##Add taxonomy and total read counts to this data.frame
+Prevdf<- data.frame(Prevalence = Prevdf,
+                          TotalAbundance = taxa_sums(PS1),
+                          tax_table(PS1))
+
+plyr::ddply(Prevdf, "Phylum", function(df1){
+  data.frame(mean_prevalence=mean(df1$Prevalence),total_abundance=sum(df1$TotalAbundance,na.rm = T),stringsAsFactors = F)
+})
+
+phyla2Filter<- c("Deinococcota", "Dependentiae")
+PS1<- subset_taxa(PS1, !Phylum %in% phyla2Filter)
+
+ggplot(Prevdf, aes(TotalAbundance, Prevalence / nsamples(PS1),color=Phylum)) +
+  geom_hline(yintercept = 0.05, alpha = 0.5, linetype = 2) + geom_point(size = 2, alpha = 0.7) +
+  scale_x_log10() +  xlab("Log 10 Total Reads") + ylab("Prevalence [Prop. of Samples]") +
+  facet_wrap(~Phylum) + theme(legend.position="none")
+
+##4) Transform to even sampling depth
 ## Rarefy without replacement
-PS1<- rarefy_even_depth(PS1, rngseed=1, sample.size=0.9*min(sample_sums(PS1)), replace=F)
+vegan::rarecurve(t(otu_table(PS1)), step=50, cex=0.5)
+set.seed(2020)
+PS1<- rarefy_even_depth(PS1, rngseed=1, sample.size=0.99*min(sample_sums(PS1)), replace=F)
 readcount(PS1)
 
 ## Merge ASVs that have the same taxonomy at a certain taxonomic rank (in this case Phylum and Family)
@@ -164,7 +188,6 @@ plot_richness(PS1, x= "Compartment", color = "Compartment" , measures = c("Obser
   theme(axis.text.x = element_text(angle=90))
 
 alphadiv<- estimate_richness(PS1)
-pairwise.wilcox.test(alphadiv$Observed, sample_data(PS1)$Compartment)
 
 alphadiv%>%
   rownames_to_column()->tmp1
@@ -181,8 +204,8 @@ rm(tmp1,tmp2)
 require(ggpubr)
 alphadiv%>%
   ggplot(aes(x= Compartment, y= Observed))+
-  geom_boxplot(aes(color= Compartment))+
-  geom_point(aes(color=Compartment))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= Compartment), color= "black")+
   xlab("Sample type")+
   scale_color_brewer(palette = "Set3")+
   labs(tag= "A)")+
@@ -190,3 +213,38 @@ alphadiv%>%
   theme(text = element_text(size=16))+
   stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Ascaris", paired = F, na.rm = TRUE)+
   stat_compare_means(method =  "anova", label.y = 10.5, label.x = 2)
+
+pairwise.wilcox.test(alphadiv$Observed, alphadiv$Compartment, p.adjust.method = "bonferroni")
+
+##Beta diversity (rarefied)
+# PCoA plot using the unweighted UniFrac as distance
+wunifrac_dist<- phyloseq::distance(PS1, method="unifrac", weighted=F)
+ordination<- ordinate(PS1, method="PCoA", distance=wunifrac_dist)
+plot_ordination(PS1, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
+  labs(tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))
+
+vegan::adonis(wunifrac_dist ~ sample_data(PS1)$Compartment)
+
+# PCoA plot using the weighted UniFrac as distance
+unifrac_dist<- phyloseq::distance(PS1, method="unifrac", weighted=T)
+ordination<- ordinate(PS1, method="PCoA", distance=unifrac_dist)
+plot_ordination(PS1, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
+  labs(tag= "C)")+
+  theme_bw()+
+  theme(text = element_text(size=16))
+
+# PCoA plot using Bray-Curtis as distance
+bray_dist<- phyloseq::distance(PS1, method="bray", weighted=T)
+ordination<- ordinate(PS1, method="PCoA", distance=bray_dist)
+plot_ordination(PS1, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
+  labs(tag= "D)")+
+  theme_bw()+
+  theme(text = element_text(size=16))
