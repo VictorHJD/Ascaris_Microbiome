@@ -22,7 +22,7 @@ rank_names(PS)
 table(tax_table(PS)[, "Kingdom"], exclude = NULL) ## ---> README results summary
 
 ## HOW many reads for off-target eukaryotes and archaea
-by(t(otu_table(PS)), tax_table(PS)[, "Kingdom"], sum) ## --->  README results summary
+by((otu_table(PS)), tax_table(PS)[, "Kingdom"], sum) ## --->  README results summary
 
 ### which different phyla for each sample
 ## barplot.PS <- plot_bar(PS, fill = "Phylum") ##Without normalization
@@ -134,60 +134,71 @@ ggplot(CombiDist, aes(plateCombi, bray, color=Plate)) +
     theme_bw()
 dev.off()
 
+###Model 1: Can the Bray-Curtis dissimilarity between samples be predicted by the position and the plate 
+summary(glm(bray~plateCombi+plateX+plateY+Plate, data = CombiDist))
+
 ##Filtering 
 ##1) Sample filtering: Filtering samples with low counts  
-PS1 <- prune_samples(sample_sums(PS)>=2000, PS)
-summarize_phyloseq(PS1)
+PS3 <- prune_samples(sample_sums(PS)>=2000, PS)
+summarize_phyloseq(PS3)
 ##2) Taxa filtering: Remove "uncharachterized" ASVs
-PS1<- subset_taxa(PS1, !is.na(Phylum) & !Phylum %in% c("", "uncharacterized"))
+PS3<- subset_taxa(PS3, !is.na(Phylum) & !Phylum %in% c("", "uncharacterized"))
 
 ##3) Taxa filtering: Remove low prevalent taxa
 ##Create a prevalence dataframe 
-Prevdf<- apply(X = otu_table(PS1),
+Prevdf<- apply(X = otu_table(PS3),
                      MARGIN = 1,
                      FUN = function(x){sum(x > 0)})
 
 ##Add taxonomy and total read counts to this data.frame
 Prevdf<- data.frame(Prevalence = Prevdf,
-                          TotalAbundance = taxa_sums(PS1),
-                          tax_table(PS1))
+                          TotalAbundance = taxa_sums(PS3),
+                          tax_table(PS3))
 
 plyr::ddply(Prevdf, "Phylum", function(df1){
   data.frame(mean_prevalence=mean(df1$Prevalence),total_abundance=sum(df1$TotalAbundance,na.rm = T),stringsAsFactors = F)
 })
 
 phyla2Filter<- c("Deinococcota", "Dependentiae")
-PS1<- subset_taxa(PS1, !Phylum %in% phyla2Filter)
+PS3<- subset_taxa(PS3, !Phylum %in% phyla2Filter)
 
-ggplot(Prevdf, aes(TotalAbundance, Prevalence / nsamples(PS1),color=Phylum)) +
+Prevdf<- apply(X = otu_table(PS3),
+               MARGIN = 1,
+               FUN = function(x){sum(x > 0)})
+Prevdf<- data.frame(Prevalence = Prevdf,
+                    TotalAbundance = taxa_sums(PS3),
+                    tax_table(PS3))
+
+ggplot(Prevdf, aes(TotalAbundance, Prevalence / nsamples(PS3),color=Phylum)) +
   geom_hline(yintercept = 0.05, alpha = 0.5, linetype = 2) + geom_point(size = 2, alpha = 0.7) +
   scale_x_log10() +  xlab("Log 10 Total Reads") + ylab("Prevalence [Prop. of Samples]") +
+  theme_bw()+
   facet_wrap(~Phylum) + theme(legend.position="none")
-
+  
 ##4) Transform to even sampling depth
 ## Rarefy without replacement
-vegan::rarecurve(t(otu_table(PS1)), step=50, cex=0.5)
+vegan::rarecurve(t(otu_table(PS3)), step=50, cex=0.5)
 set.seed(2020)
-PS1<- rarefy_even_depth(PS1, rngseed=1, sample.size=0.99*min(sample_sums(PS1)), replace=F)
-readcount(PS1)
+PS3<- rarefy_even_depth(PS3, rngseed=1, sample.size=0.99*min(sample_sums(PS3)), replace=F)
+readcount(PS3)
 
 ## Merge ASVs that have the same taxonomy at a certain taxonomic rank (in this case Phylum and Family)
-PS.Fam<-  tax_glom(PS1, "Family", NArm = F)
+PS.Fam<-  tax_glom(PS3, "Family", NArm = F)
 summarize_phyloseq(PS.Fam)
 
-PS.Phy<-  tax_glom(PS1, "Phylum", NArm = F)
+PS.Phy<-  tax_glom(PS3, "Phylum", NArm = F)
 summarize_phyloseq(PS.Phy)
 
 plot_bar(PS.Phy, fill="Phylum") + facet_wrap(~Compartment, scales= "free_x", nrow=1)
 
 ##Alpha diversity (rarefied)
-plot_richness(PS1, x= "Compartment", color = "Compartment" , measures = c("Observed","Chao1", "Shannon")) +
+plot_richness(PS3, x= "Compartment", color = "Compartment" , measures = c("Observed","Chao1", "Shannon")) +
   #geom_boxplot()+
   geom_jitter(alpha= 0.005)+
   theme_bw()+
   theme(axis.text.x = element_text(angle=90))
 
-alphadiv<- estimate_richness(PS1)
+alphadiv<- estimate_richness(PS3)
 
 alphadiv%>%
   rownames_to_column()->tmp1
@@ -218,21 +229,21 @@ pairwise.wilcox.test(alphadiv$Observed, alphadiv$Compartment, p.adjust.method = 
 
 ##Beta diversity (rarefied)
 # PCoA plot using the unweighted UniFrac as distance
-wunifrac_dist<- phyloseq::distance(PS1, method="unifrac", weighted=F)
-ordination<- ordinate(PS1, method="PCoA", distance=wunifrac_dist)
-plot_ordination(PS1, ordination)+ 
+wunifrac_dist<- phyloseq::distance(PS3, method="unifrac", weighted=F)
+ordination<- ordinate(PS3, method="PCoA", distance=wunifrac_dist)
+plot_ordination(PS3, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
   labs(tag= "B)")+
   theme_bw()+
   theme(text = element_text(size=16))
 
-vegan::adonis(wunifrac_dist ~ sample_data(PS1)$Compartment)
+vegan::adonis(wunifrac_dist ~ sample_data(PS3)$Compartment)
 
 # PCoA plot using the weighted UniFrac as distance
-unifrac_dist<- phyloseq::distance(PS1, method="unifrac", weighted=T)
-ordination<- ordinate(PS1, method="PCoA", distance=unifrac_dist)
-plot_ordination(PS1, ordination)+ 
+unifrac_dist<- phyloseq::distance(PS3, method="unifrac", weighted=T)
+ordination<- ordinate(PS3, method="PCoA", distance=unifrac_dist)
+plot_ordination(PS3, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
   labs(tag= "C)")+
@@ -240,19 +251,19 @@ plot_ordination(PS1, ordination)+
   theme(text = element_text(size=16))
 
 # PCoA plot using Bray-Curtis as distance
-bray_dist<- phyloseq::distance(PS1, method="bray", weighted=T)
-ordination<- ordinate(PS1, method="PCoA", distance=bray_dist)
-plot_ordination(PS1, ordination)+ 
+bray_dist<- phyloseq::distance(PS3, method="bray", weighted=T)
+ordination<- ordinate(PS3, method="PCoA", distance=bray_dist)
+plot_ordination(PS3, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
   labs(tag= "D)")+
   theme_bw()+
   theme(text = element_text(size=16))
 
-vegan::adonis(bray_dist ~ sample_data(PS1)$Compartment)
+vegan::adonis(bray_dist ~ sample_data(PS3)$Compartment)
 
-asvmat.rare<- as.matrix(PS1@otu_table)
-taxmat.rare<- as.matrix(PS1@tax_table)
+asvmat.rare<- as.matrix(PS3@otu_table)
+taxmat.rare<- as.matrix(PS3@tax_table)
 write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.csv")
 write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Taxa_matrix.csv")
 write.csv(as.matrix(bray_dist), "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Bray_Curtis.csv")
