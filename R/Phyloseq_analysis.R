@@ -249,6 +249,8 @@ plot_ordination(PS1, ordination)+
   theme_bw()+
   theme(text = element_text(size=16))
 
+vegan::adonis(bray_dist ~ sample_data(PS1)$Compartment)
+
 asvmat.rare<- as.matrix(PS1@otu_table)
 taxmat.rare<- as.matrix(PS1@tax_table)
 write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.csv")
