@@ -267,3 +267,17 @@ taxmat.rare<- as.matrix(PS3@tax_table)
 write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.csv")
 write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Taxa_matrix.csv")
 write.csv(as.matrix(bray_dist), "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Bray_Curtis.csv")
+
+#Transform to relative abundance matix summarized to genus level
+PS4<- transform_sample_counts(PS3, function(x) x / sum(x) )
+PS.Gen<-  tax_glom(PS4, "Genus", NArm = T)
+summarize_phyloseq(PS.Gen)
+
+asvmat.gen<- as.matrix(PS.Gen@otu_table)
+taxmat.gen<- as.data.frame(PS.Gen@tax_table)
+taxmat.gen<- taxmat.gen[,"Genus", drop=FALSE]
+
+genus.relab<- cbind(asvmat.gen, taxmat.gen)
+genus.relab<- genus.relab[, c(167, 1:166)]
+write.table(genus.relab, "/SAN/Victors_playground/Ascaris_Microbiome/output/Genus_relative_abundance.txt", 
+            sep = "\t", row.names = FALSE)
