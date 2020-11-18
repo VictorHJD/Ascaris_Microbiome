@@ -279,5 +279,6 @@ taxmat.gen<- taxmat.gen[,"Genus", drop=FALSE]
 
 genus.relab<- cbind(asvmat.gen, taxmat.gen)
 genus.relab<- genus.relab[, c(167, 1:166)]
+gsub(" ", "_", genus.relab$Genus)
 write.table(genus.relab, "/SAN/Victors_playground/Ascaris_Microbiome/output/Genus_relative_abundance.txt", 
-            sep = "\t", row.names = FALSE)
+            sep = "\t", row.names = FALSE, quote=F)
