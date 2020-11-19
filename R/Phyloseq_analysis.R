@@ -263,25 +263,35 @@ plot_ordination(PS3, ordination)+
 
 vegan::adonis(bray_dist ~ sample_data(PS3)$Compartment)
 
+##Create biom format object for PICRUSt2
+require("biomformat")
 asvmat.rare<- as.matrix(PS3@otu_table)
 taxmat.rare<- as.matrix(PS3@tax_table)
-write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.csv")
-write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Taxa_matrix.csv")
-write.csv(as.matrix(bray_dist), "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Bray_Curtis.csv")
+sample.rare<- as.data.frame(PS3@sam_data)
+
+biom.rare<- make_biom(asvmat.rare, sample_metadata = sample.rare, observation_metadata = taxmat.rare,
+                      id = NULL, matrix_element_type = "int")
+
+write_biom(biom.rare,"/SAN/Victors_playground/Ascaris_Microbiome/output/rare.biom")
+
+##Select sequences from the ASV in PS3
+keep <- data.frame(name = rownames(asvmat.rare))
+names(dna)
+dna.rare<- dna[keep$name]
+writeXStringSet(dna.rare, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV.fasta") #-> For Picrust2
+
+#write.table(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.txt", sep = "\t") #-> For Picrust2
+#write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Taxa_matrix.csv") #-> For Picrust2
+#write.csv(as.matrix(bray_dist), "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Bray_Curtis.csv")
 
 #Transform to relative abundance matix summarized to genus level
 PS4<- transform_sample_counts(PS3, function(x) x / sum(x) )
 
-asvmat.ra<- as.matrix(PS4@otu_table)
-taxmat.ra<- as.matrix(PS4@tax_table)
-write.csv(asvmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV_matrix.csv") -#-> For Picrust2
-write.csv(taxmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_Taxa_matrix.csv") #-> For Picrust2
+#asvmat.ra<- as.matrix(PS4@otu_table)
+#taxmat.ra<- as.matrix(PS4@tax_table)
+#write.table(asvmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV_matrix.txt", sep = "\t") 
+#write.csv(taxmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_Taxa_matrix.csv") 
 
-##Select sequences from the ASV in PS4
-keep <- data.frame(name = rownames(asvmat.ra))
-names(dna)
-dna.ra<- dna[keep$name]
-writeXStringSet(dna.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV.fasta") #-> For Picrust2
 
 PS.Gen<-  tax_glom(PS4, "Genus", NArm = T)
 summarize_phyloseq(PS.Gen)
