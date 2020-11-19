@@ -112,7 +112,7 @@ ggplot(CombiDist, aes(plateY, bray, color=Plate)) +
     geom_jitter(alpha=0.3, width=0.3, height=0) + 
     stat_smooth(se=FALSE, method="lm") +
     scale_x_continuous("Physical row-distance on PCR plate") +
-    scale_y_continuous("Curtis-Bray dissimilarity between samples") +
+    scale_y_continuous("Bray-Curtis dissimilarity between samples") +
     theme_bw()
 dev.off()
 
@@ -121,7 +121,7 @@ ggplot(CombiDist, aes(plateX, bray, color=Plate)) +
     geom_jitter(alpha=0.3, width=0.3, height=0) + 
     stat_smooth(se=FALSE, method="lm") +
     scale_x_continuous("Physical column-distance on PCR plate") +
-    scale_y_continuous("Curtis-Bray dissimilarity between samples") +
+    scale_y_continuous("Bray-Curtis dissimilarity between samples") +
     theme_bw()
 dev.off()
 
@@ -130,12 +130,13 @@ ggplot(CombiDist, aes(plateCombi, bray, color=Plate)) +
     geom_jitter(alpha=0.3, width=0.3, height=0) + 
     stat_smooth(se=FALSE, method="lm") +
     scale_x_continuous("Combined physical distance on plate") +
-    scale_y_continuous("Curtis-Bray dissimilarity between samples") +
+    scale_y_continuous("Bray-Curtis dissimilarity between samples") +
     theme_bw()
 dev.off()
 
-###Model 1: Can the Bray-Curtis dissimilarity between samples be predicted by the position and the plate 
-summary(glm(bray~plateCombi+plateX+plateY+Plate, data = CombiDist))
+###Model 1: Can the Bray-Curtis dissimilarity between samples be predicted by the position in the plate 
+summary(lm(bray~plateCombi, data = subset(CombiDist, Plate== "A"))) 
+summary(lm(bray~plateCombi, data = subset(CombiDist, Plate== "B")))
 
 ##Filtering 
 ##1) Sample filtering: Filtering samples with low counts  
@@ -270,6 +271,18 @@ write.csv(as.matrix(bray_dist), "/SAN/Victors_playground/Ascaris_Microbiome/outp
 
 #Transform to relative abundance matix summarized to genus level
 PS4<- transform_sample_counts(PS3, function(x) x / sum(x) )
+
+asvmat.ra<- as.matrix(PS4@otu_table)
+taxmat.ra<- as.matrix(PS4@tax_table)
+write.csv(asvmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV_matrix.csv") -#-> For Picrust2
+write.csv(taxmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_Taxa_matrix.csv") #-> For Picrust2
+
+##Select sequences from the ASV in PS4
+keep <- data.frame(name = rownames(asvmat.ra))
+names(dna)
+dna.ra<- dna[keep$name]
+writeXStringSet(dna.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV.fasta") #-> For Picrust2
+
 PS.Gen<-  tax_glom(PS4, "Genus", NArm = T)
 summarize_phyloseq(PS.Gen)
 
