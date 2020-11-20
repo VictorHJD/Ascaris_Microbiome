@@ -272,7 +272,10 @@ sample.rare<- as.data.frame(PS3@sam_data)
 biom.rare<- make_biom(asvmat.rare, sample_metadata = sample.rare, observation_metadata = taxmat.rare,
                       id = NULL, matrix_element_type = "int")
 
-write_biom(biom.rare,"/SAN/Victors_playground/Ascaris_Microbiome/output/rare.biom")
+write_biom(biom.rare,"/SAN/Victors_playground/Ascaris_Microbiome/output/rare.biom") ##This biom file is not working
+
+biom.tmp<- make_biom(asvmat.rare, matrix_element_type = "int")
+write_biom(biom.tmp,"/SAN/Victors_playground/Ascaris_Microbiome/output/biom_tmp.biom") ##Temporal biom for test
 
 ##Select sequences from the ASV in PS3
 keep <- data.frame(name = rownames(asvmat.rare))
