@@ -16,6 +16,8 @@ fastqR <- grep("_R2_001.fastq.gz", fastqFiles, value = TRUE) #separate the rever
 samples <- gsub("S\\d+-", "\\1", basename(fastqF))
 samples <- gsub("_S\\d+_L001_R1_001.fastq\\.gz", "\\1", basename(samples))
 
+samplesMDC<- gsub("-\\d+_S\\d+_L001_R1_001.fastq\\.gz", "\\1", basename(fastqF))
+
 ###Check quality of the reads 
 plotQualityProfile(fastqF[10:11])
 plotQualityProfile(fastqR[10:11])
@@ -156,6 +158,8 @@ if(Phylobj){
   dna<- readDNAStringSet("/SAN/Victors_playground/Ascaris_Microbiome/output/ASV.fasta")
   ##Load sample data
   sample <- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/Pig_Ascaris_16S_Samples_barcode.csv", dec=",", stringsAsFactors=FALSE)
+ ##Add sample names used by Ulrike
+  sample[ , "MDC_Names"] <- samplesMDC
   
 ##To phyloseq
 library(phyloseq)
