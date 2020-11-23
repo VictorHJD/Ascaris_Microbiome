@@ -11,6 +11,7 @@ library(DEGreport)
 library(RColorBrewer)
 library(DESeq2)
 library(pheatmap)
+library(ALDEx2)
 
 ##Re run
 reRun<- FALSE
@@ -20,9 +21,17 @@ if(!exists("sample")){
   if(isTRUE(reRun)){
     source("Dada2_Pipeline.R") ## Run the script at base directory of repository!   
   } else {
-    sample<- readRDS(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/sample.Rds") ##
+    sample <- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/Pig_Ascaris_16S_Samples_barcode.csv", dec=",", stringsAsFactors=FALSE)
+    ##Add sample names used by Ulrike
+    sample[ , "MDC_Names"] <- samplesMDC ##
   }
 }
+##Define factor variables
+fac.vars <- c("Barcode_Plate", "Barcode_Well", "Sample_ID", 
+  "Barcode_ID", "Barcode_Seq","Compartment", "System", "DPI", "InfectionStatus",
+  "AnimalSpecies", "WormSex", "Live", "MDC_Names") 
+ 
+sample[, fac.vars] <- apply(sample[, fac.vars], 2, as.factor)
 
 ##2)Predicted metagenomes
 setwd("/SAN/Victors_playground/Ascaris_Microbiome/output/picrust2_out_pipeline/")
@@ -44,79 +53,149 @@ rownames(PredDesM)<-PredDesM$function.
 PredDesM$function.<- NULL
 PredDesM$description<- NULL
 PredDesM<- as.matrix(PredDesM)
-coldata<- as.tibble(sample)
-rownames(coldata) <- paste0("Sample", coldata$BeGenDiv_Name)
+rownames(sample) <- paste0("Sample", sample$BeGenDiv_Name)
 
 keep <- data.frame(name = colnames(PredDesM))
-coldata<- coldata[keep$name,]
+coldata<- sample[keep$name,]
 rownames(coldata) <- paste0("Sample", coldata$BeGenDiv_Name)
 
+##Create DESeq table 
 ddsTable <- DESeqDataSetFromMatrix(
   countData = round(PredDesM),
   colData = coldata,
   design = ~Compartment)
 
-ddsTable<- DESeq(ddsTable)
-
-results(ddsTable, cooksCutoff = FALSE)
 ##Select the top 25 more abundant genes 
-## Order results by padj values
 PredDes%>%
   replace(is.na(.), 0)%>%
   mutate(Total = rowSums(select(., contains("Sample"))))%>%
-  select(function., description, Total)-> tmp
+  select(function., description, Total)%>%
+  column_to_rownames(var = "function.")-> tmp
 
-PredMet_ordered <- PredMet[order(PredMet$), ]
+tmp <- tmp[order(-tmp$Total), ]
 
-top20_sigOE_genes <- rownames(res_tableOE_ordered[1:20, ])
+tmp <- rownames(tmp[1:25, ])
 
+PredDestop25 <- data.frame(PredDesM[tmp, ])
 
-##Heatmap
-heatmap(PredDesM, scale = "row")
+##Modify data frame to canonical format
+mPredDestop25 <- data.frame(Gene = rownames(PredDestop25), PredDestop25)
+mPredDestop25 <- melt(mPredDestop25, id.vars = "Gene")
+colnames(mPredDestop25) <- c("Gene", "Sample_Name", "Counts")
+##Add metadata 
+coldata%>%
+  rownames_to_column(var= "Sample_Name")->coldata
 
-######### Bray-Curtis dissimilarity estimation (Figure 2) ########
-foo.matrix<- as.matrix(foo)
-foo.braycurt<- vegdist(foo.matrix, method = "bray")
-as.matrix(foo.braycurt)
+mPredDestop25 <- plyr::join(mPredDestop25, coldata, by="Sample_Name")
+
+##Check genes more samples
+## plot using ggplot2
+ggplot(mPredDestop25) +
+  geom_point(aes(x = reorder(Gene, -Counts), y = Counts)) +
+  scale_y_log10(name = "log10 Gene Count", 
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  annotation_logticks(sides = "l")+
+  labs(tag= "A)")+
+  xlab("Genes") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+mPredDestop25%>%
+  filter(Compartment%in%c("Ascaris"))%>%
+  ggplot(aes(y= Counts, x= reorder(Gene, -Counts)))+
+  scale_y_log10("log10 Gene counts", 
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  geom_boxplot(aes(color= WormSex))+
+  xlab("Enzyme Classification ID")+
+  labs(tag= "A)")+
+  theme_bw()+
+  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45, hjust = 1))+
+  annotation_logticks(sides = "l")+
+  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Female", paired = F, na.rm = TRUE)+
+  stat_compare_means(method =  "anova", label.y = 1, label.x = 2)
+
+mPredDestop25%>%
+  filter(Compartment%in%c("Faeces", "Duodenum","Jejunum", "Colon", "Cecum", "Ileum"))%>%
+  ggplot(aes(y= Counts, x= reorder(Gene, -Counts)))+
+  scale_y_log10("log10 Gene counts", 
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  geom_boxplot(aes(color= Compartment))+
+  xlab("Enzyme Classification ID")+
+  scale_color_brewer(palette = "Set3")+
+  labs(tag= "A)")+
+  theme_bw()+
+  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45, hjust = 1))+
+  annotation_logticks(sides = "l")+
+  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Faeces", paired = F, na.rm = TRUE)+
+  stat_compare_means(method =  "anova", label.y = 2.5, label.x = 5)
+
+mPredDestop25%>%
+  filter(Compartment%in%c("Faeces"))%>%
+  ggplot(aes(y= Counts, x= reorder(Gene, -Counts)))+
+  scale_y_log10("log10 Gene counts", 
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  geom_boxplot(aes(color= DPI))+
+  xlab("Enzyme Classification ID")+
+  scale_color_brewer(palette = "Set3")+
+  labs(tag= "A)")+
+  theme_bw()+
+  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45, hjust = 1))+
+  annotation_logticks(sides = "l")+
+  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "2", paired = F, na.rm = TRUE)+
+  stat_compare_means(method =  "anova", label.y = 2.5, label.x = 5)
+
+######### Bray-Curtis dissimilarity estimation ########
+heatmap(as.matrix(PredDestop25))
+
+#foo.matrix<- as.matrix(foo)
+#foo.braycurt<- vegdist(foo.matrix, method = "bray")
+#as.matrix(foo.braycurt)
 
 ###Using pheatmap to include annotations 
-foo.clust <- hclust(dist(foo.braycurt), method = "complete") ##Dendogram
-require(dendextend)
-as.dendrogram(foo.clust) %>%
-  plot(horiz = TRUE)
+#foo.clust <- hclust(dist(foo.braycurt), method = "complete") ##Dendogram
+#require(dendextend)
+#as.dendrogram(foo.clust) %>%
+#  plot(horiz = TRUE)
 
-foo.col <- cutree(tree = foo.clust, k = 2)
-foo.col  <- data.frame(cluster = ifelse(test = foo.col  == 1, yes = "cluster 1", no = "cluster 2"))
-foo.col$Primer_comb_ID <- rownames(foo.col)
+#foo.col <- cutree(tree = foo.clust, k = 2)
+#foo.col  <- data.frame(cluster = ifelse(test = foo.col  == 1, yes = "cluster 1", no = "cluster 2"))
+#foo.col$Primer_comb_ID <- rownames(foo.col)
 
-foo.col <- merge(foo.col, primerInput, by="Primer_comb_ID", sort= F)
+#foo.col <- merge(foo.col, primerInput, by="Primer_comb_ID", sort= F)
 
-col_groups <- foo.col %>%
-  select("Primer_comb_ID", "Gen", "Region") ##Here It is possible to add the expected size 
+#col_groups <- foo.col %>%
+#  select("Primer_comb_ID", "Gen", "Region") ##Here It is possible to add the expected size 
 
-row.names(col_groups)<- col_groups$Primer_comb_ID
+#row.names(col_groups)<- col_groups$Primer_comb_ID
 
-col_groups$Primer_comb_ID<- NULL
+#col_groups$Primer_comb_ID<- NULL
 
-colour_groups <- list( Gen= c("12S"= "#E3DAC9", "16S"= "pink","18S"= "#440154FF", "28S"= "#21908CFF", 
-                              "COI"= "#FDE725FF", "ITS"= "#C46210", "rbcL"= "#D0FF14"),
-                       Region= c("V1-V2"= "#8DD3C7","V1-V3"= "#009999" ,"V3-V4"= "#FFFFB3", "V4"= "#BEBADA", "V4-V5"= "#FB8072", "V6-V7"= "#80B1D3",
-                                 "V6-V8"="#FDB462", "V7-V8"= "#B3DE69", "V7-V9"="#FC4E07","V8-V9"= "#FCCDE5", "V9"= "#D9D9D9",
-                                 "D2"="#D95F02", "D3"= "#7570B3", "Folmer"= "#E7298A", "ITS1"= "#A6761D", "Chloroplast"= "#66A61E", "Mitochondrial"= "#E6AB02"))
-require(pheatmap)
-require(viridis)
-BCheatmap <- pheatmap(foo.braycurt, 
-                      color = plasma(100),
-                      border_color = NA,
-                      annotation_col = col_groups, 
-                      #annotation_row = col_groups,
-                      annotation_colors = colour_groups,
-                      #cutree_rows = 2,
-                      #cutree_cols = 2,
-                      show_rownames = F,
-                      show_colnames = F,
-                      main= "Bray-Curtis dissimilarity among primers")
+#colour_groups <- list( Gen= c("12S"= "#E3DAC9", "16S"= "pink","18S"= "#440154FF", "28S"= "#21908CFF", 
+#                              "COI"= "#FDE725FF", "ITS"= "#C46210", "rbcL"= "#D0FF14"),
+#                       Region= c("V1-V2"= "#8DD3C7","V1-V3"= "#009999" ,"V3-V4"= "#FFFFB3", "V4"= "#BEBADA", "V4-V5"= "#FB8072", "V6-V7"= "#80B1D3",
+#                                 "V6-V8"="#FDB462", "V7-V8"= "#B3DE69", "V7-V9"="#FC4E07","V8-V9"= "#FCCDE5", "V9"= "#D9D9D9",
+#                                 "D2"="#D95F02", "D3"= "#7570B3", "Folmer"= "#E7298A", "ITS1"= "#A6761D", "Chloroplast"= "#66A61E", "Mitochondrial"= "#E6AB02"))
+#require(pheatmap)
+#require(viridis)
+#BCheatmap <- pheatmap(foo.braycurt, 
+#                      color = plasma(100),
+#                      border_color = NA,
+#                      annotation_col = col_groups, 
+#                     #annotation_row = col_groups,
+#                      annotation_colors = colour_groups,
+#                      #cutree_rows = 2,
+#                      #cutree_cols = 2,
+#                      show_rownames = F,
+#                      show_colnames = F,
+#                      main= "Bray-Curtis dissimilarity among samples")
 
-#pdf(file = "~/AA_Primer_evaluation/Figures/Manuscript/Figure_2.pdf", width = 10, height = 8)
+#pdf(file = "~/...", width = 10, height = 8)
 #BCheatmap
 #dev.off()
+
+##DESeq analysis
+ddsTable<- DESeq(ddsTable)
