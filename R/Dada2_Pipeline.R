@@ -190,6 +190,7 @@ phylotree<- rtree(ntaxa(PS), rooted=TRUE, tip.label=taxa_names(PS))
 
 PS <- merge_phyloseq(asv, sample, tax, phylotree)
 
-saveRDS(PS, file="/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds") 
+saveRDS(PS, file="/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds")
+saveRDS(sample, file="/SAN/Victors_playground/Ascaris_Microbiome/output/sample.Rds")
 }
 
