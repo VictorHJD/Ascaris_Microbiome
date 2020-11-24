@@ -315,6 +315,7 @@ mPredPathDestop25%>%
 
 
 ###Using pheatmap to include annotations 
+df<- t(df)
 df.matix<-as.matrix(df)
 df.clust <- hclust(dist(df.matix), method = "complete") ##Dendogram
 
