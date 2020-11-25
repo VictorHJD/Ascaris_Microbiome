@@ -15,19 +15,26 @@ library(ALDEx2)
 library(tidyverse)
 library(viridis)
 
-##Re run
-reRun<- FALSE
+
+##Scaling abundances function
+cal_z_score <- function(x){
+  (x - mean(x)) / sd(x)
+}
 ##Load data
 ##1) Sample data
 if(!exists("sample")){
-  if(isTRUE(reRun)){
-    source("Dada2_Pipeline.R") ## Run the script at base directory of repository!   
-  } else {
     sample <- read.csv("/SAN/Victors_playground/Ascaris_Microbiome/Pig_Ascaris_16S_Samples_barcode.csv", dec=",", stringsAsFactors=FALSE)
     ##Add sample names used by Ulrike
+    path <- "/SAN/Victors_playground/Ascaris_Microbiome/2018_22_Nem1/" # CHANGE ME to the directory containing the fastq files after unzipping.
+    list.files(path)
+    fastqFiles <- list.files(path, pattern=".fastq.gz$", full.names=TRUE) #take all fastaq files from the folder 
+    fastqF <- grep("_R1_001.fastq.gz", fastqFiles, value = TRUE) #separate the forward reads
+    fastqR <- grep("_R2_001.fastq.gz", fastqFiles, value = TRUE) #separate the reverse reads 
+    samplesMDC<- gsub("-\\d+_S\\d+_L001_R1_001.fastq\\.gz", "\\1", basename(fastqF))
     sample[ , "MDC_Names"] <- samplesMDC ##
-  }
 }
+rm(fastqF, fastqFiles, fastqR, path, samplesMDC)
+
 ##Define factor variables
 fac.vars <- c("Barcode_Plate", "Barcode_Well", "Sample_ID", 
   "Barcode_ID", "Barcode_Seq","Compartment", "System", "DPI", "InfectionStatus",
@@ -186,7 +193,7 @@ mPredDestop25%>%
   annotation_logticks(sides = "l")
 
 ######### Bray-Curtis dissimilarity estimation ########
-heatmap(as.matrix(PredDestop25))
+pheatmap(as.matrix(PredDestop25))
 
 PredDestop25.matrix<- as.matrix(PredDestop25)
 PredDestop25.matrix<- t(PredDestop25.matrix)
@@ -241,9 +248,33 @@ PredPathDesM<- PredPathDes
 rownames(PredPathDesM)<-PredPathDesM$pathway
 PredPathDesM$pathway<- NULL
 PredPathDesM$description<- NULL
+PredPathDesM%>%
+  replace(is.na(.), 0)-> PredPathDesM
+  
 PredPathDesM<- as.matrix(PredPathDesM)
+pheatmap(PredPathDesM)
 
-##Select the top 25 more abundant pathways 
+PredPathDesM.norm <- t(apply(PredPathDesM, 1, cal_z_score))
+as.data.frame(PredPathDesM.norm)%>%
+  replace(is.na(.), 0)-> PredPathDesM.norm
+PredPathDesM.norm<- as.matrix(PredPathDesM.norm)
+pheatmap(PredPathDesM.norm)
+
+PredPathDesM.clust <- hclust(dist(PredPathDesM), method = "complete") ##Dendogram
+
+require(dendextend)
+as.dendrogram(PredPathDesM.clust) %>%
+  plot(horiz = TRUE)
+##Detect cluster of pathways (apparently 2)
+PredPathDesM.col <- cutree(tree = PredPathDesM.clust, k = 2)
+PredPathDesM.col  <- data.frame(cluster = ifelse(test = PredPathDesM.col  == 1, yes = "cluster 1", no = "cluster 2"))
+PredPathDesM.col%>%
+  filter(cluster== "cluster 1")-> PathC1
+
+PathC1<- rownames(PathC1)
+PathC1<-gsub("-", ".", PathC1)
+
+##Select the top 25 more abundant pathways out of cluster 1 pathways 
 PredPathDes%>%
   replace(is.na(.), 0)%>%
   mutate(Total = rowSums(select(., contains("Sample"))))%>%
@@ -253,6 +284,11 @@ PredPathDes%>%
 tmp <- tmp[order(-tmp$Total), ]
 tmp <- rownames(tmp[1:25, ])
 PredPathDestop25 <- data.frame(PredPathDesM[tmp, ])
+
+rownames(PredPathDes)<-PredPathDes$pathway
+Pathdes<- PredPathDes[tmp,]
+Pathdes<- as.data.frame(Pathdes[,1:2])
+#write.csv(Pathdes, "/SAN/Victors_playground/Ascaris_Microbiome/output/Top_predicted_pathways.csv")
 
 df<- data.frame(PredPathDestop25)
 df<- t(df)
@@ -271,7 +307,8 @@ colnames(mPredPathDestop25) <- c("Pathway", "Sample_Name", "Relative_abundance")
 
 ##Add metadata 
 mPredPathDestop25<- plyr::join(mPredPathDestop25, coldata, by="Sample_Name")
-
+Path25<- unique(mPredPathDestop25$Pathway)
+#pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Top_predicted_pathways.pdf", width = 10, height = 8)
 mPredPathDestop25%>%
   ggplot(aes(x = reorder(Pathway, -Relative_abundance), y = Relative_abundance, color= Pathway)) +
   scale_color_viridis_d()+
@@ -288,7 +325,8 @@ mPredPathDestop25%>%
         y = 0.04, yend = mean(Relative_abundance)),
     size = 0.8) +
   geom_hline(aes(yintercept = 0.04), color = "gray70", size = 0.6)
-  
+#dev.off()
+
 mPredPathDestop25%>%
   filter(Compartment%in%c("Ascaris"))%>%
   ggplot(aes(y= Relative_abundance, x= reorder(Pathway, -Relative_abundance)))+
@@ -300,27 +338,10 @@ mPredPathDestop25%>%
   theme_bw()+
   theme(text = element_text(size=16))
 
-mPredPathDestop25%>%
-  filter(Compartment%in%c("Faeces", "Duodenum","Jejunum", "Colon", "Cecum", "Ileum"))%>%
-  ggplot(aes(y= Counts, x= reorder(Pathway, -Counts)))+
-  scale_y_log10("log10 Pathway abundance", 
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x)))+
-  geom_boxplot(aes(color= Compartment))+
-  xlab("Pathway")+
-  scale_color_brewer(palette = "Set3")+
-  labs(tag= "C)")+
-  theme_bw()+
-  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45, hjust = 1))+
-  annotation_logticks(sides = "l")
-
 ###Using pheatmap to include annotations 
 df.matrix<-as.matrix(PredPathDestop25)
 
 ##Scaling abundances
-cal_z_score <- function(x){
-  (x - mean(x)) / sd(x)
-}
 df.matrix.norm <- t(apply(df.matrix, 1, cal_z_score))
 pheatmap(df.matrix.norm)
 
@@ -358,9 +379,9 @@ HMPredPathDestop25 <- pheatmap(df.matrix.norm,
                            show_colnames = F,
                            main= "Pathway relative abundance among samples")
 
-pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways.pdf", width = 10, height = 8)
-HMPredPathDestop25
-dev.off()
+#pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways.pdf", width = 10, height = 8)
+#HMPredPathDestop25
+#dev.off()
 
 ##Select jusr Ascaris samples to compare between sexes 
 coldata%>%
@@ -396,11 +417,11 @@ AscPredPathDestop25 <- pheatmap(Asc.matrix.norm,
                                cutree_cols = 2,
                                show_rownames = T,
                                show_colnames = F,
-                               main= "Pathway relative abundance among Ascaris samples")
+                               main= "Pathway scaled abundance among Ascaris samples")
 
-pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways_Ascaris.pdf", width = 10, height = 8)
-AscPredPathDestop25
-dev.off()
+#pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways_Ascaris.pdf", width = 10, height = 8)
+#AscPredPathDestop25
+#dev.off()
 
 ##DESeq analysis
 ddsTable<- DESeq(ddsTable)

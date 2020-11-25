@@ -88,14 +88,21 @@ rownames(asvmat) <- paste0("ASV", 1:nrow(asvmat))
 colnames(asvmat) <- paste0("Sample", 1:ncol(asvmat))
 head(asvmat)
 write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/ASV_matrix.csv")
+asv.sample<- as.data.frame(asvmat)
+asv.sample<- as.matrix(colSums(asv.sample))
+colnames(asv.sample)<- "ASVs_dada2"
 
 ###Track reads through the pipeline 
 getN <- function(x) sum(getUniques(x))
-track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+track <- cbind(sapply(fastqF, getN), sapply(fastqR, getN), sapply(filtFs, getN), sapply(filtRs, getN), sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
 #If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
-colnames(track) <- c("input", "filtered", "merged", "nonchim")
+track<-track[,c(1,3,5:8)]
+colnames(track) <- c("input_dada2", "filtered_dada2", "denoisedF_dada2", "denoisedR_dada2", "merged_dada2", "nonchim_dada2")
 rownames(track) <- samples
+rownames(track) <- paste0("Sample", 1:nrow(track))
+track<- cbind(track, asv.sample)
 head(track)
+saveRDS(track, "/SAN/Victors_playground/Ascaris_Microbiome/Track_DADA2.rds") ##Final track of dada2 pipeline
 
 ##Taxonomic annotation using naive Bayesian classifier from dada2 with SILVA db version 138
 taxa <- assignTaxonomy(seqtab.nochim, "/SAN/db/RDP_Silva/Silva_138.1/dada2format/silva_nr99_v138_train_set.fa.gz", multithread=TRUE)
