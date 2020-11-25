@@ -206,8 +206,9 @@ PredDestop25.col$Sample_Name <- rownames(PredDestop25.col)
 
 PredDestop25.col <- merge(PredDestop25.col, coldata, by="Sample_Name", sort= F)
 
-col_groups <- PredDestop25.col %>%
-  select("Sample_Name", "AnimalSpecies", "Compartment") ##Here It is possible to add the expected size 
+##Add annotation for samples
+col_groups <- coldata %>%
+  select("Sample_Name", "AnimalSpecies", "Compartment", "Barcode_Plate") ##Here It is possible to add the expected size 
 
 row.names(col_groups)<- col_groups$Sample_Name
 
@@ -215,7 +216,8 @@ col_groups$Sample_Name<- NULL
 
 colour_groups <- list(AnimalSpecies= c("Pig"= "pink", "Ascaris"= "#C46210"),
                       Region= c("Faeces"= "#8DD3C7","Colon"= "#009999" ,"Duodenum"= "#FFFFB3", "Jejunum"= "#BEBADA", 
-                                "Negative"= "#FB8072", "Ascaris"= "#80B1D3"))
+                                "Negative"= "#FB8072", "Ascaris"= "#80B1D3"),
+                      Barcode_Plate= c(A1= "red", A2= "blue"))
 
 BCPredDestop25 <- pheatmap(PredDestop25.braycurt, 
                       color = viridis(100),
@@ -276,7 +278,7 @@ mPredPathDestop25%>%
   geom_jitter(size = 2, alpha = 0.05, width = 0.2) +
   stat_summary(fun = mean, geom = "point", size = 5)+
   coord_flip() +
-  scale_y_continuous(name = "Pathway relative abundance", limits = c(0, 0.1))+
+  scale_y_continuous(name = "Pathway relative abundance", limits = c(0, 0.075))+
   labs(tag= "A)")+
   xlab("Pathway") +
   theme_bw()+
@@ -312,25 +314,28 @@ mPredPathDestop25%>%
   theme(text = element_text(size=16), axis.text.x = element_text(angle = 45, hjust = 1))+
   annotation_logticks(sides = "l")
 
-
-
 ###Using pheatmap to include annotations 
-df<- t(df)
-df.matix<-as.matrix(df)
-df.clust <- hclust(dist(df.matix), method = "complete") ##Dendogram
+df.matrix<-as.matrix(PredPathDestop25)
+
+##Scaling abundances
+cal_z_score <- function(x){
+  (x - mean(x)) / sd(x)
+}
+df.matrix.norm <- t(apply(df.matrix, 1, cal_z_score))
+pheatmap(df.matrix.norm)
+
+df.clust <- hclust(dist(df.matrix), method = "complete") ##Dendogram
 
 require(dendextend)
 as.dendrogram(df.clust) %>%
   plot(horiz = TRUE)
-
+##Detect cluster of pathways (apparently none :S)
 df.col <- cutree(tree = df.clust, k = 2)
 df.col  <- data.frame(cluster = ifelse(test = df.col  == 1, yes = "cluster 1", no = "cluster 2"))
-PredDestop25.col$Sample_Name <- rownames(PredDestop25.col)
 
-PredDestop25.col <- merge(PredDestop25.col, coldata, by="Sample_Name", sort= F)
-
-col_groups <- PredDestop25.col %>%
-  select("Sample_Name", "AnimalSpecies", "Compartment") ##Here It is possible to add the expected size 
+##Add annotation for samples
+col_groups <- coldata %>%
+  select("Sample_Name", "AnimalSpecies", "Compartment", "Barcode_Plate") ##Here It is possible to add the expected size 
 
 row.names(col_groups)<- col_groups$Sample_Name
 
@@ -338,20 +343,64 @@ col_groups$Sample_Name<- NULL
 
 colour_groups <- list(AnimalSpecies= c("Pig"= "pink", "Ascaris"= "#C46210"),
                       Region= c("Faeces"= "#8DD3C7","Colon"= "#009999" ,"Duodenum"= "#FFFFB3", "Jejunum"= "#BEBADA", 
-                                "Negative"= "#FB8072", "Ascaris"= "#80B1D3"))
+                                "Negative"= "#FB8072", "Ascaris"= "#80B1D3"),
+                      Barcode_Plate= c(A1= "red", A2= "blue"))
 
-BCPredDestop25 <- pheatmap(PredDestop25.braycurt, 
-                           color = viridis(100),
+HMPredPathDestop25 <- pheatmap(df.matrix.norm, 
+                           #color = viridis(100),
                            border_color = NA,
                            annotation_col = col_groups, 
                            #annotation_row = col_groups,
                            annotation_colors = colour_groups,
                            #cutree_rows = 2,
-                           #cutree_cols = 2,
-                           show_rownames = F,
+                           cutree_cols = 2,
+                           show_rownames = ,
                            show_colnames = F,
-                           main= "Bray-Curtis dissimilarity among samples")
+                           main= "Pathway relative abundance among samples")
 
+pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways.pdf", width = 10, height = 8)
+HMPredPathDestop25
+dev.off()
+
+##Select jusr Ascaris samples to compare between sexes 
+coldata%>%
+  filter(AnimalSpecies == "Ascaris")-> Asc.df
+keep<- Asc.df$Sample_Name
+
+tmp<- as.data.frame(t(PredPathDestop25))
+tmp$Sample_Name<- rownames(tmp)
+tmp<- tmp[tmp$Sample_Name %in% keep,]
+tmp$Sample_Name<- NULL
+tmp<- t(tmp)
+Asc.matrix<-as.matrix(tmp)
+
+##Scaling abundances
+Asc.matrix.norm <- t(apply(Asc.matrix, 1, cal_z_score))
+##Add annotation for samples
+Asc_groups <- Asc.df %>%
+  select("Sample_Name", "Barcode_Plate", "System", "WormSex") ##Here It is possible to add the expected size 
+
+row.names(Asc_groups)<- Asc_groups$Sample_Name
+
+Asc_groups$Sample_Name<- NULL
+
+colour_Asc_groups <- list(WormSex= c("Male"= "green", "Female"= "#C46210"),
+                      System= c("Pig1"= "#8DD3C7","Pig2"= "#009999" ,"Pig3"= "#FFFFB3", "Pig5"= "#BEBADA", 
+                                "SH"= "#FB8072"),
+                      Barcode_Plate= c(A1= "red", A2= "blue"))
+
+AscPredPathDestop25 <- pheatmap(Asc.matrix.norm, 
+                               border_color = NA,
+                               annotation_col = Asc_groups,
+                               annotation_colors = colour_Asc_groups,
+                               cutree_cols = 2,
+                               show_rownames = T,
+                               show_colnames = F,
+                               main= "Pathway relative abundance among Ascaris samples")
+
+pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways_Ascaris.pdf", width = 10, height = 8)
+AscPredPathDestop25
+dev.off()
 
 ##DESeq analysis
 ddsTable<- DESeq(ddsTable)
