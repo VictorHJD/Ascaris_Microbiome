@@ -159,7 +159,7 @@ plyr::ddply(Prevdf, "Phylum", function(df1){
   data.frame(mean_prevalence=mean(df1$Prevalence),total_abundance=sum(df1$TotalAbundance,na.rm = T),stringsAsFactors = F)
 })
 
-phyla2Filter<- c("Deinococcota", "Dependentiae")
+phyla2Filter<- c("Aquificota", "Dependentiae")
 PS3<- subset_taxa(PS3, !Phylum %in% phyla2Filter)
 
 Prevdf<- apply(X = otu_table(PS3),
