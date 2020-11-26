@@ -7,15 +7,15 @@ Analysis of microbiome data from Ascaris infections in pigs
 
 |    |Archaea   | Bacteria  |Eukaryota   |  NA |
 |---|---|---|---|---|
-|number ASVs   | 25  | 35588  |101   | 4  |
-|number Sequences   | 329  | 1542188  |2602   | 105  |
+|number ASVs   | 0  | 16268  |0   |1  |
+|number Sequences   | 0  | 1542188  |0   | 17  |
                       
--> Eukaryote "contamination" seems negligible I'd say
+-> NO Eukaryote contamination
 
 ## But another problem:  PCR chimeras 
 
 The overall number of reads counted towards ASVs is very low: Starting
-from 5233526 filtered reads means less than 30% (1545224) made it
+from 5935573 filtered reads means less than 40% (2374869) made it
 through the pipeline: dada2 detected loads of *PCR chimeras* (more than
 *50% of the reads*)!!??
 

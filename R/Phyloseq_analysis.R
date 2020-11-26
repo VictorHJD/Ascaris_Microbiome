@@ -9,7 +9,6 @@ if(!exists("PS")){
     if(isTRUE(reRun)){
         source("Dada2_Pipeline.R") ## Run the script at base directory of repository!   
     } else {
-        #PS<- readRDS(file="/SAN/Victors_playground/Ascaris_Microbiome/PhyloSeqCombi.Rds") #Old annotation BLAST
       PS<- readRDS(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds") ##New annotation SILVA
     }
 }
