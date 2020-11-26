@@ -178,8 +178,8 @@ ggplot(Prevdf, aes(TotalAbundance, Prevalence / nsamples(PS3),color=Phylum)) +
 ##4) Transform to even sampling depth
 ## Rarefy without replacement
 vegan::rarecurve(t(otu_table(PS3)), step=50, cex=0.5)
-set.seed(2020)
-PS3<- rarefy_even_depth(PS3, rngseed=1, sample.size=0.99*min(sample_sums(PS3)), replace=F)
+
+PS3<- rarefy_even_depth(PS3, rngseed=2020, sample.size=min(sample_sums(PS3)), replace=F)
 readcount(PS3)
 
 ## Merge ASVs that have the same taxonomy at a certain taxonomic rank (in this case Phylum and Family)
@@ -265,16 +265,8 @@ vegan::adonis(bray_dist ~ sample_data(PS3)$Compartment)
 ##Create biom format object for PICRUSt2
 require("biomformat")
 asvmat.rare<- as.matrix(PS3@otu_table)
-taxmat.rare<- as.matrix(PS3@tax_table)
-sample.rare<- as.data.frame(PS3@sam_data)
-
-biom.rare<- make_biom(asvmat.rare, sample_metadata = sample.rare, observation_metadata = taxmat.rare,
-                      id = NULL, matrix_element_type = "int")
-
-write_biom(biom.rare,"/SAN/Victors_playground/Ascaris_Microbiome/output/rare.biom") ##This biom file is not working
-
 biom.tmp<- make_biom(asvmat.rare, matrix_element_type = "int")
-write_biom(biom.tmp,"/SAN/Victors_playground/Ascaris_Microbiome/output/biom_tmp.biom") ##Temporal biom for test
+write_biom(biom.tmp,"/SAN/Victors_playground/Ascaris_Microbiome/output/biom_tmp.biom") ##Good biom for test
 
 ##Select sequences from the ASV in PS3
 keep <- data.frame(name = rownames(asvmat.rare))
