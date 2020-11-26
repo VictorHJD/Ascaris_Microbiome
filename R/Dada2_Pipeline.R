@@ -88,9 +88,19 @@ rownames(asvmat) <- paste0("ASV", 1:nrow(asvmat))
 colnames(asvmat) <- paste0("Sample", 1:ncol(asvmat))
 head(asvmat)
 write.csv(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/ASV_matrix.csv")
+
+##Get count of ASVs detected by sample
 asv.sample<- as.data.frame(asvmat)
-asv.sample<- as.matrix(colSums(asv.sample))
+test<- data.frame()
+for (i in 1:ncol(asv.sample)) {
+  asv<- data.frame()
+  asv[1,1]<- sum(asv.sample[,i]!=0)
+  rownames(asv)<- paste0("Sample", i)
+  test <- rbind(test, asv) ### Join all the "individual" data frames into the final data frame 
+}
+asv.sample<- as.matrix(test)
 colnames(asv.sample)<- "ASVs_dada2"
+rm(test,asv, i)
 
 ###Track reads through the pipeline 
 getN <- function(x) sum(getUniques(x))
@@ -100,7 +110,7 @@ track<-track[,c(1,3,5:8)]
 colnames(track) <- c("input_dada2", "filtered_dada2", "denoisedF_dada2", "denoisedR_dada2", "merged_dada2", "nonchim_dada2")
 rownames(track) <- samples
 rownames(track) <- paste0("Sample", 1:nrow(track))
-track<- cbind(track, asv.sample)
+track<-cbind(track, asv.sample)
 head(track)
 saveRDS(track, "/SAN/Victors_playground/Ascaris_Microbiome/Track_DADA2.rds") ##Final track of dada2 pipeline
 
