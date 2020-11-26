@@ -22,10 +22,9 @@ samplesMDC<- gsub("-\\d+_S\\d+_L001_R1_001.fastq\\.gz", "\\1", basename(fastqF))
 plotQualityProfile(fastqF[10:11])
 plotQualityProfile(fastqR[10:11])
 
-###They look okish!!!!
+#filt_path <- "/SAN/Victors_playground/Ascaris_Microbiome/filtered_old" ##old filtering
 
-filt_path <- "/SAN/Victors_playground/Ascaris_Microbiome/filtered"
-
+filt_path <- "/SAN/Victors_playground/Ascaris_Microbiome/filtered2"  
 #Pipeline filtration 
 if(!file_test("-d", filt_path)) dir.create(filt_path)
 filtFs <- file.path(filt_path, paste0(samples, "_F_filt.fastq.gz"))
@@ -33,17 +32,23 @@ names(filtFs) <- samples
 filtRs <- file.path(filt_path, paste0(samples, "_R_filt.fastq.gz"))
 names(filtRs) <- samples
 
-out <- for(i in seq_along(fastqF)) {
-        fastqPairedFilter(c(fastqF[i], fastqR[i]), c(filtFs[i], filtRs[i]),
-                    truncLen=c(240,240), ##This gives just 10bp overlap, Prev. conditions were 240,250 
-                    maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
-                    compress=TRUE, verbose=TRUE)}
+##Old filtering conditions
+#out <- for(i in seq_along(fastqF)) {
+#        fastqPairedFilter(c(fastqF[i], fastqR[i]), c(filtFs[i], filtRs[i]),
+#                    truncLen=c(240,240),  
+#                    maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, 
+#                    compress=TRUE, verbose=TRUE)}
+
+out <- filterAndTrim(fastqF, filtFs, fastqR, filtRs, truncLen=c(240, 240), ##This gives just 10bp overlap, Prev. conditions were 240,250
+                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, trimLeft = c(17, 21), ##Remove primers
+                     compress=TRUE, multithread=TRUE)
+head(out)
 
 ###Learning errors
 errF <- learnErrors(filtFs, multithread=TRUE)
-##100930560 total bases in 420544 reads from 15 samples will be used for learning the error rates.
+#105311973 total bases in 472251 reads from 15 samples will be used for learning the error rates.
 errR <- learnErrors(filtRs, multithread=TRUE)
-##100930560 total bases in 420544 reads from 15 samples will be used for learning the error rates.
+#105311973 total bases in 472251 reads from 15 samples will be used for learning the error rates.
 
 plotErrors(errF, nominalQ=TRUE)
 plotErrors(errR, nominalQ=TRUE)
@@ -64,15 +69,17 @@ dim(seqtab)
 # Inspect distribution of sequence lengths
 table(nchar(getSequences(seqtab))) ##Everything looks good but we have some short fragments 
 plot(table(nchar(getSequences(seqtab))))
-##Since our expected amplicon size is 460bp, Let's make an in silico cut: everything below 439 bp will be cutted 
-seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 439:468]
-plot(table(nchar(getSequences(seqtab2))))
-##Remove chimeras 
 
+##Since our expected amplicon size is 440bp with primers, Let's make an in silico cut
+seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 400:430] ##New filtering gives amplicons ~426bp expected as amplicon
+plot(table(nchar(getSequences(seqtab2))))
+
+##Remove chimeras 
 ##Use just the data with the expected size
 seqtab.nochim <- removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
 dim(seqtab.nochim)
-sum(seqtab.nochim)/sum(seqtab) ###Uuuu just 41% of the read pass... let's continue 
+sum(seqtab.nochim)/sum(seqtab)
+##With new filtering conditions 53.5% of the reads passed 
 saveRDS(seqtab.nochim, "/SAN/Victors_playground/Ascaris_Microbiome/seqtab_final.rds") ##Final sequence table without chimeras
 }
 
