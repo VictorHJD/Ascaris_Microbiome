@@ -46,10 +46,15 @@ sample[, fac.vars] <- apply(sample[, fac.vars], 2, as.factor)
 setwd("/SAN/Victors_playground/Ascaris_Microbiome/output/picrust2_out_pipeline/")
 ##How the ASVs contribute to gene family abundances in each sample
 PredMet<- read.table("EC_metagenome_out/pred_metagenome_contrib.tsv", header = T, sep = "\t")
-##Enzyme classification abundances per sample (Count table)
+##Enzyme classification (EC) abundances per sample (Count table)
 PredDes<- read.table("EC_metagenome_out/pred_metagenome_unstrat_descrip.tsv", header = T, sep = "\t")
 
-##3)Predicted pathway functions
+##3)How the ASVs contribute to KEGG onthology (KO) abundances in each sample
+PredKO<- read.table("KO_metagenome_out/pred_metagenome_contrib.tsv", header = T, sep = "\t")
+##KO abundances per sample (Count table)
+PredKODes<- read.table("KO_metagenome_out/pred_metagenome_unstrat_descrip.tsv.gz", header = T, sep = "\t")
+
+##4)Predicted pathway functions
 ##How the ASVs contribute to metabolic pathways abundances in each sample
 PredPath<- read.table("pathways_out/path_abun_contrib.tsv", header = T, sep = "\t")
 ##Metabolic pathway abundances per sample
@@ -423,5 +428,44 @@ AscPredPathDestop25 <- pheatmap(Asc.matrix.norm,
 #AscPredPathDestop25
 #dev.off()
 
+##Select jusr Ascaris samples to compare between sexes 
+coldata%>%
+  filter(AnimalSpecies == "Pig")-> Pig.df
+keep<- Pig.df$Sample_Name
+
+tmp<- as.data.frame(t(PredPathDestop25))
+tmp$Sample_Name<- rownames(tmp)
+tmp<- tmp[tmp$Sample_Name %in% keep,]
+tmp$Sample_Name<- NULL
+tmp<- t(tmp)
+Pig.matrix<-as.matrix(tmp)
+
+##Scaling abundances
+Pig.matrix.norm <- t(apply(Pig.matrix, 1, cal_z_score))
+##Add annotation for samples
+Pig_groups <- Pig.df %>%
+  select("Sample_Name", "Barcode_Plate", "System", "InfectionStatus") ##Here It is possible to add the expected size 
+
+row.names(Pig_groups)<- Pig_groups$Sample_Name
+
+Pig_groups$Sample_Name<- NULL
+
+colour_Pig_groups <- list(InfectionStatus= c("Infected"= "green", "Non_infected"= "#C46210"),
+                          System= c("Pig1"= "#8DD3C7","Pig2"= "#009999" ,"Pig3"= "#FFFFB3", "Pig4"= "#E6AB02","Pig5"= "#BEBADA", 
+                                     "Pig6"= "#80B1D3", "Pig7"= "#FDB462", "Pig8"= "#B3DE69", "Pig9"= "#FC4E07"),
+                          Barcode_Plate= c(A1= "red", A2= "blue"))
+
+PigPredPathDestop25 <- pheatmap(Pig.matrix.norm, 
+                                border_color = NA,
+                                annotation_col = Pig_groups,
+                                annotation_colors = colour_Pig_groups,
+                                cutree_cols = 2,
+                                show_rownames = T,
+                                show_colnames = F,
+                                main= "Pathway scaled abundance among Pig samples")
+
+#pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways_Pig.pdf", width = 10, height = 8)
+#PigPredPathDestop25
+#dev.off()
 ##DESeq analysis
 ddsTable<- DESeq(ddsTable)
