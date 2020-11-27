@@ -1,5 +1,45 @@
-# Ascaris_Microbiome
-Analysis of microbiome data from Ascaris infections in pigs
+# *Ascaris*-Pig-Microbiome project
+Analysis of microbiome data from *Ascaris* infections in pigs with the dada2 pipeline
+
+## Sample overview
+
+### How many samples were included in the sequence library:
+In total **177** samples
+
+|         |Ascaris| Cecum| Colon| Duodenum| Faeces| Ileum| Jejunum| Negative|Total|
+|---|---|---|---|---|---|---|---|---|---|
+|DNA_kit  |     0 |    0 |   0  |      0  |    0  |   0  |      0 |       2 | 2   |  
+|H2O      |     0 |    0 |   0  |      0  |    0  |   0  |      0 |       2 | 2   |
+|Pig1     |     5 |    3 |   2  |      3  |    5  |   1  |      1 |       0 |20   |
+|Pig2     |     7 |    4 |   2  |      2  |    5  |   0  |      3 |       0 |23   |
+|Pig3     |    10 |    2 |   2  |      2  |    5  |   1  |      3 |       0 |25   |
+|Pig4     |     0 |    2 |   2  |      2  |    5  |   0  |      4 |       0 |15   |
+|Pig5     |     1 |    2 |   2  |      2  |    5  |   0  |      3 |       0 |15   |
+|Pig6     |     0 |    2 |   2  |      2  |    5  |   1  |      3 |       0 |15   |
+|Pig7     |     0 |    2 |   1  |      2  |    5  |   1  |      3 |       0 |14   |
+|Pig8     |     0 |    2 |   2  |      2  |    5  |   0  |      3 |       0 |14   |
+|Pig9     |     0 |    2 |   2  |      2  |    5  |   1  |      3 |       0 |15   |
+|SH       |    15 |    0 |   0  |      0  |    0  |   0  |      0 |       0 |15   |
+|Tris     |     0 |    0 |   0  |      0  |    0  |   0  |      0 |       2 | 2   |
+
+### How many samples passed the filtering and sequencing processing:
+In total **167** samples
+
+|         |Ascaris| Cecum| Colon| Duodenum| Faeces| Ileum| Jejunum| Negative|Total|
+|---|---|---|---|---|---|---|---|---|---|
+|DNA_kit  |     0 |    0 |   0  |      0  |    0  |   0  |      0 |       2 | 2   |
+|H2O      |     0 |    0 |   0  |      0  |    0  |   0  |      0 |       1 | 1   |
+|Pig1     |     5 |    3 |   2  |      3  |    5  |   1  |      1 |       0 |20   |
+|Pig2     |     7 |    4 |   2  |      2  |    4  |   0  |      3 |       0 |22   |
+|Pig3     |    10 |    2 |   2  |      2  |    5  |   1  |      2 |       0 |24   |
+|Pig4     |     0 |    2 |   2  |      2  |    5  |   0  |      4 |       0 |15   |
+|Pig5     |     1 |    2 |   2  |      2  |    4  |   0  |      3 |       0 |14   |
+|Pig6     |     0 |    2 |   2  |      2  |    4  |   1  |      3 |       0 |14   |
+|Pig7     |     0 |    2 |   1  |      1  |    4  |   1  |      3 |       0 |12   |
+|Pig8     |     0 |    2 |   2  |      2  |    4  |   0  |      3 |       0 |13   |
+|Pig9     |     0 |    2 |   2  |      2  |    4  |   1  |      3 |       0 |14   |
+|SH       |    15 |    0 |   0  |      0  |    0  |   0  |      0 |       0 |15   |
+|Tris     |     0 |    0 |   0  |      0  |    0  |   0  |      0 |       1 | 1   |
 
 ## Goal 1: How much "eukaryote contamination" is present in the sequencing 
 

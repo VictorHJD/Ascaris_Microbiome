@@ -302,17 +302,42 @@ write.table(genus.relab, "/SAN/Victors_playground/Ascaris_Microbiome/output/Genu
             sep = "\t", row.names = FALSE, quote=F)
 
 ##Prune samples 
-##Pig samples
-PS3.Pig<- subset_samples(PS3, AnimalSpecies=="Pig")
-bray_dist<- phyloseq::distance(PS3.Pig, method="bray", weighted=T)
-ordination<- ordinate(PS3.Pig, method="PCoA", distance=bray_dist)
-plot_ordination(PS3.Pig, ordination)+ 
+##Pig samples (not faeces)
+PS3.Pig<- subset_samples(PS3, AnimalSpecies=="Pig"&Compartment!="Faeces")
+sdt.pig <- data.table(as(sample_data(PS3.Pig), "data.frame"), keep.rownames = T)
+##Just faeces samples
+PS3.Fec<- subset_samples(PS3, Compartment=="Faeces")
+sdt.fec <- data.table(as(sample_data(PS3.Fec), "data.frame"), keep.rownames = T)
+##Pig samples (duodenum) and Ascaris
+PS3.PA<- subset_samples(PS3, Compartment%in%c("Duodenum", "Ascaris"))
+sdt.PA <- data.table(as(sample_data(PS3.PA), "data.frame"), keep.rownames = T)
+
+bray_dist<- phyloseq::distance(PS3.Fec, method="bray", weighted=T)
+ordination<- ordinate(PS3.Fec, method="PCoA", distance=bray_dist)
+plot_ordination(PS3.Fec, ordination)+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= Barcode_Plate), color= "black")+
+  geom_point(shape=21, size=3, aes(fill= DPI), color= "black")+
   labs(tag= "D)")+
   theme_bw()+
   theme(text = element_text(size=16))
 
-sdt.pig <- data.table(as(sample_data(PS3.Pig), "data.frame"), keep.rownames = T)
+bray_dist<- phyloseq::distance(PS3.Pig, method="bray", weighted=T)
+ordination<- ordinate(PS3.Pig, method="PCoA", distance=bray_dist)
+plot_ordination(PS3.Pig, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
+  labs(tag= "D)")+
+  theme_bw()+
+  theme(text = element_text(size=16))
 
-vegan::adonis(bray_dist ~ System+Compartment+InfectionStatus+Barcode_Plate+Barcode_Well, data = sdt.pig)
+bray_dist<- phyloseq::distance(PS3.PA, method="bray", weighted=T)
+ordination<- ordinate(PS3.PA, method="PCoA", distance=bray_dist)
+plot_ordination(PS3.PA, ordination, color= "System", shape="Compartment")+ 
+  theme(aspect.ratio=1)+
+  geom_point(size=5, alpha= 0.75)+
+  labs(tag= "D)")+
+  theme_bw()+
+  scale_colour_brewer(type="qual", palette="Paired")+
+  theme(text = element_text(size=16))
+
+vegan::adonis(bray_dist ~ System+Compartment+Barcode_Plate+Barcode_Well, data = sdt.PA)
