@@ -467,5 +467,6 @@ PigPredPathDestop25 <- pheatmap(Pig.matrix.norm,
 #pdf(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/Predicted_pathways_Pig.pdf", width = 10, height = 8)
 #PigPredPathDestop25
 #dev.off()
+
 ##DESeq analysis
 ddsTable<- DESeq(ddsTable)

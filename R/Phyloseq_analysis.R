@@ -1,6 +1,7 @@
 library(phyloseq)
 library(microbiome)
 library(tidyverse)
+library(data.table)
 
 reRun <- FALSE
 
@@ -214,15 +215,16 @@ rm(tmp1,tmp2)
 
 require(ggpubr)
 alphadiv%>%
-  ggplot(aes(x= Compartment, y= Observed))+
+  dplyr::filter(Compartment%in%c("Duodenum"))%>%
+  ggplot(aes(x= InfectionStatus, y= Observed))+
   geom_boxplot(color= "black", alpha= 0.5)+
-  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= Compartment), color= "black")+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
   xlab("Sample type")+
   scale_color_brewer(palette = "Set3")+
   labs(tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Ascaris", paired = F, na.rm = TRUE)+
+  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Non_infected", paired = F, na.rm = TRUE)+
   stat_compare_means(method =  "anova", label.y = 10.5, label.x = 2)
 
 pairwise.wilcox.test(alphadiv$Observed, alphadiv$Compartment, p.adjust.method = "bonferroni")
@@ -286,7 +288,6 @@ PS4<- transform_sample_counts(PS3, function(x) x / sum(x) )
 #write.table(asvmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV_matrix.txt", sep = "\t") 
 #write.csv(taxmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_Taxa_matrix.csv") 
 
-
 PS.Gen<-  tax_glom(PS4, "Genus", NArm = T)
 summarize_phyloseq(PS.Gen)
 
@@ -299,3 +300,19 @@ genus.relab<- genus.relab[, c(167, 1:166)]
 gsub(" ", "_", genus.relab$Genus)
 write.table(genus.relab, "/SAN/Victors_playground/Ascaris_Microbiome/output/Genus_relative_abundance.txt", 
             sep = "\t", row.names = FALSE, quote=F)
+
+##Prune samples 
+##Pig samples
+PS3.Pig<- subset_samples(PS3, AnimalSpecies=="Pig")
+bray_dist<- phyloseq::distance(PS3.Pig, method="bray", weighted=T)
+ordination<- ordinate(PS3.Pig, method="PCoA", distance=bray_dist)
+plot_ordination(PS3.Pig, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= Barcode_Plate), color= "black")+
+  labs(tag= "D)")+
+  theme_bw()+
+  theme(text = element_text(size=16))
+
+sdt.pig <- data.table(as(sample_data(PS3.Pig), "data.frame"), keep.rownames = T)
+
+vegan::adonis(bray_dist ~ System+Compartment+InfectionStatus+Barcode_Plate+Barcode_Well, data = sdt.pig)
