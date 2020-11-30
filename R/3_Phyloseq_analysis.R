@@ -92,93 +92,91 @@ tmp1$rowname<- NULL
 alphadiv<- tmp1
 rm(tmp1,tmp2)
 
+table(alphadiv$System, alphadiv$Compartment) ## ---> README sample overview (post filtering)
+
+###Question 1:
+###How does Ascaris impact the porcine microbiome and does this differ in different gut regions?
+###General comparison between infected and non infected pigs (all compartments and not merged replicates)
 require(ggpubr)
 alphadiv%>%
-  dplyr::filter(Compartment%in%c("Duodenum"))%>%
+  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
   ggplot(aes(x= InfectionStatus, y= Observed))+
   geom_boxplot(color= "black", alpha= 0.5)+
   geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
-  xlab("Sample type")+
+  xlab("Infection status")+
   scale_color_brewer(palette = "Set3")+
   labs(tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
   stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Non_infected", paired = F, na.rm = TRUE)+
-  stat_compare_means(method =  "anova", label.y = 10.5, label.x = 2)
+  stat_compare_means(method =  "anova", label.y = 10.5, label.x = 2)-> A
 
-pairwise.wilcox.test(alphadiv$Observed, alphadiv$Compartment, p.adjust.method = "bonferroni")
+###General comparison between infected and non infected pigs by compartments (not merged replicates)
+alphadiv%>%
+  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                            "Duodenum", "Jejunum", "Ileum", 
+                            "Cecum", "Colon"))%>%
+  ggplot(aes(x= Compartment, y= Observed))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("GI compartment")+
+  scale_color_brewer(palette = "Set3")+
+  labs(tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  facet_wrap(~InfectionStatus)+
+  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Duodenum", paired = F, na.rm = TRUE)+
+  stat_compare_means(method =  "anova", label.y = 5, label.x = 4)-> B
+
+#pairwise.wilcox.test(alphadiv$Observed, alphadiv$Compartment, p.adjust.method = "bonferroni")
 
 ##Beta diversity (rarefied)
 # PCoA plot using the unweighted UniFrac as distance
-wunifrac_dist<- phyloseq::distance(PS3, method="unifrac", weighted=F)
-ordination<- ordinate(PS3, method="PCoA", distance=wunifrac_dist)
-plot_ordination(PS3, ordination)+ 
+wunifrac_dist<- phyloseq::distance(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+                                   method="unifrac", weighted=F)
+ordination<- ordinate(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+                      method="PCoA", distance=wunifrac_dist)
+plot_ordination(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
-  labs(tag= "B)")+
+  labs(title = "Unweighted UniFrac",tag= "A)")+
   theme_bw()+
-  theme(text = element_text(size=16))
-
-vegan::adonis(wunifrac_dist ~ sample_data(PS3)$Compartment)
+  theme(text = element_text(size=16))-> C
 
 # PCoA plot using the weighted UniFrac as distance
-unifrac_dist<- phyloseq::distance(PS3, method="unifrac", weighted=T)
-ordination<- ordinate(PS3, method="PCoA", distance=unifrac_dist)
-plot_ordination(PS3, ordination)+ 
+unifrac_dist<- phyloseq::distance(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+                                  method="unifrac", weighted=T)
+ordination<- ordinate(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+                      method="PCoA", distance=unifrac_dist)
+plot_ordination(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
-  labs(tag= "C)")+
+  labs(title = "Weighted UniFrac", tag= "B)")+
   theme_bw()+
-  theme(text = element_text(size=16))
+  theme(text = element_text(size=16)) ->D
 
 # PCoA plot using Bray-Curtis as distance
-bray_dist<- phyloseq::distance(PS3, method="bray", weighted=T)
-ordination<- ordinate(PS3, method="PCoA", distance=bray_dist)
-plot_ordination(PS3, ordination)+ 
+bray_dist<- phyloseq::distance(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), 
+                               method="bray", weighted=T)
+ordination<- ordinate(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+                      method="PCoA", distance=bray_dist)
+plot_ordination(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
-  labs(tag= "D)")+
+  labs(title = "Bray-Curtis", tag= "C)")+
   theme_bw()+
-  theme(text = element_text(size=16))
+  theme(text = element_text(size=16))-> E
 
-vegan::adonis(bray_dist ~ sample_data(PS3)$Compartment)
+require(grid)
+require(gridExtra)
+png("Figures/Q1_Alphadiv_Compartment.png", units = 'in', res = 300, width=4, height=3)
+grid.arrange(A, B)
+dev.off()
 
-##Create biom format object for PICRUSt2
-require("biomformat")
-asvmat.rare<- as.matrix(PS3@otu_table)
-biom.tmp<- make_biom(asvmat.rare, matrix_element_type = "int")
-write_biom(biom.tmp,"/SAN/Victors_playground/Ascaris_Microbiome/output/biom_tmp.biom") ##Good biom for test
-
-##Select sequences from the ASV in PS3
-keep <- data.frame(name = rownames(asvmat.rare))
-names(dna)
-dna.rare<- dna[keep$name]
-writeXStringSet(dna.rare, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV.fasta") #-> For Picrust2
-
-#write.table(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.txt", sep = "\t") #-> For Picrust2
-#write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Taxa_matrix.csv") #-> For Picrust2
-#write.csv(as.matrix(bray_dist), "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Bray_Curtis.csv")
-
-#Transform to relative abundance matix summarized to genus level
-PS4<- transform_sample_counts(PS3, function(x) x / sum(x) )
-
-#asvmat.ra<- as.matrix(PS4@otu_table)
-#taxmat.ra<- as.matrix(PS4@tax_table)
-#write.table(asvmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV_matrix.txt", sep = "\t") 
-#write.csv(taxmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_Taxa_matrix.csv") 
-
-PS.Gen<-  tax_glom(PS4, "Genus", NArm = T)
-summarize_phyloseq(PS.Gen)
-
-asvmat.gen<- as.matrix(PS.Gen@otu_table)
-taxmat.gen<- as.data.frame(PS.Gen@tax_table)
-taxmat.gen<- taxmat.gen[,"Genus", drop=FALSE]
-
-genus.relab<- cbind(asvmat.gen, taxmat.gen)
-genus.relab<- genus.relab[, c(167, 1:166)]
-gsub(" ", "_", genus.relab$Genus)
-write.table(genus.relab, "/SAN/Victors_playground/Ascaris_Microbiome/output/Genus_relative_abundance.txt", 
-            sep = "\t", row.names = FALSE, quote=F)
+png("Figures/Q1_Betadiv_Compartment.png", units = 'in', res = 300, width=4, height=3)
+grid.arrange(C, D, E)
+dev.off()
 
 ##Prune samples 
 ##Pig samples (not faeces)
@@ -203,7 +201,6 @@ sdt.PA2<- sample_data(sdt.PA2)
 sample_names(sdt.PA2) <- sdt.PA2$Replicate
 
 PS3.PA2<-merge_samples(PS3.PA2, "Replicates")
-
 
 bray_dist<- phyloseq::distance(PS3.Fec, method="bray", weighted=T)
 ordination<- ordinate(PS3.Fec, method="PCoA", distance=bray_dist)
@@ -244,3 +241,41 @@ plot_ordination(PS3.PA2, ordination)+
   theme_bw()+
   scale_colour_brewer(type="qual", palette="Paired")+
   theme(text = element_text(size=16))
+
+##Create biom format object for PICRUSt2
+require("biomformat")
+asvmat.rare<- as.matrix(PS3@otu_table)
+biom.tmp<- make_biom(asvmat.rare, matrix_element_type = "int")
+write_biom(biom.tmp,"/SAN/Victors_playground/Ascaris_Microbiome/output/biom_tmp.biom") ##Good biom for test
+
+##Select sequences from the ASV in PS3
+keep <- data.frame(name = rownames(asvmat.rare))
+names(dna)
+dna.rare<- dna[keep$name]
+writeXStringSet(dna.rare, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV.fasta") #-> For Picrust2
+
+#write.table(asvmat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_ASV_matrix.txt", sep = "\t") #-> For Picrust2
+#write.csv(taxamat, "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Taxa_matrix.csv") #-> For Picrust2
+#write.csv(as.matrix(bray_dist), "/SAN/Victors_playground/Ascaris_Microbiome/output/Rare_Bray_Curtis.csv")
+
+#Transform to relative abundance matix summarized to genus level
+PS4<- transform_sample_counts(PS3, function(x) x / sum(x) )
+
+#asvmat.ra<- as.matrix(PS4@otu_table)
+#taxmat.ra<- as.matrix(PS4@tax_table)
+#write.table(asvmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_ASV_matrix.txt", sep = "\t") 
+#write.csv(taxmat.ra, "/SAN/Victors_playground/Ascaris_Microbiome/output/RelAb_Taxa_matrix.csv") 
+
+PS.Gen<-  tax_glom(PS4, "Genus", NArm = T)
+summarize_phyloseq(PS.Gen)
+
+asvmat.gen<- as.matrix(PS.Gen@otu_table)
+taxmat.gen<- as.data.frame(PS.Gen@tax_table)
+taxmat.gen<- taxmat.gen[,"Genus", drop=FALSE]
+
+genus.relab<- cbind(asvmat.gen, taxmat.gen)
+genus.relab<- genus.relab[, c(167, 1:166)]
+gsub(" ", "_", genus.relab$Genus)
+write.table(genus.relab, "/SAN/Victors_playground/Ascaris_Microbiome/output/Genus_relative_abundance.txt", 
+            sep = "\t", row.names = FALSE, quote=F)
+
