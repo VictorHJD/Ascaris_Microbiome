@@ -94,11 +94,78 @@ rm(tmp1,tmp2)
 
 table(alphadiv$System, alphadiv$Compartment) ## ---> README sample overview (post filtering)
 
+##Prune samples for different questions
+##Pig samples (Just GI compartment)
+PS3.Pig<- subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris")))
+sdt.pig <- data.table(as(sample_data(PS3.Pig), "data.frame"), keep.rownames = T)
+alphadiv.pig<- estimate_richness(PS3.Pig) ###Estimate alpha diversity values 
+alphadiv.pig%>%
+  rownames_to_column()->tmp1
+
+row.names(sdt.pig)<- sdt.pig$rn
+names(sdt.pig)[names(sdt.pig) == "rn"] <- "rowname"
+
+tmp1<-inner_join(tmp1, sdt.pig, by="rowname")
+rownames(tmp1)<- tmp1$rowname
+tmp1$rowname<- NULL
+sdt.pig<- tmp1
+rm(tmp1,aalphadiv.pig)
+
+##Just faeces samples (difference accross time)
+PS3.Fec<- subset_samples(PS3, Compartment=="Faeces")
+sdt.fec <- data.table(as(sample_data(PS3.Fec), "data.frame"), keep.rownames = T)
+alphadiv.fec<- estimate_richness(PS3.Fec) ###Estimate alpha diversity values
+alphadiv.fec%>%
+  rownames_to_column()->tmp1
+
+row.names(sdt.fec)<- sdt.fec$rn
+names(sdt.fec)[names(sdt.fec) == "rn"] <- "rowname"
+
+tmp1<-inner_join(tmp1, sdt.fec, by="rowname")
+rownames(tmp1)<- tmp1$rowname
+tmp1$rowname<- NULL
+sdt.fec<- tmp1
+rm(tmp1,alphadiv.fec)
+
+##Pig samples site of infection (Jejunum) and Ascaris (not SH)
+PS3.PA<- subset_samples(PS3, Compartment%in%c("Jejunum", "Ascaris"))
+PS3.PA<- subset_samples(PS3.PA, !(System%in%c("SH")))
+sdt.PA <- data.table(as(sample_data(PS3.PA), "data.frame"), keep.rownames = T)
+alphadiv.PA<- estimate_richness(PS3.PA) ###Estimate alpha diversity values
+alphadiv.PA%>%
+  rownames_to_column()->tmp1
+
+row.names(sdt.PA)<- sdt.PA$rn
+names(sdt.PA)[names(sdt.PA) == "rn"] <- "rowname"
+
+tmp1<-inner_join(tmp1, sdt.PA, by="rowname")
+rownames(tmp1)<- tmp1$rowname
+tmp1$rowname<- NULL
+sdt.PA<- tmp1
+rm(tmp1,alphadiv.PA)
+
+##Ascaris samples
+PS3.Asc<- subset_samples(PS3, Compartment%in%c("Ascaris"))
+sdt.Asc <- data.table(as(sample_data(PS3.Asc), "data.frame"), keep.rownames = T)
+alphadiv.Asc<- estimate_richness(PS3.Asc) ###Estimate alpha diversity values
+alphadiv.Asc%>%
+  rownames_to_column()->tmp1
+
+row.names(sdt.Asc)<- sdt.Asc$rn
+names(sdt.Asc)[names(sdt.Asc) == "rn"] <- "rowname"
+
+tmp1<-inner_join(tmp1, sdt.Asc, by="rowname")
+rownames(tmp1)<- tmp1$rowname
+tmp1$rowname<- NULL
+sdt.Asc<- tmp1
+rm(tmp1,alphadiv.Asc)
+
 ###Question 1:
 ###How does Ascaris impact the porcine microbiome and does this differ in different gut regions?
 ###General comparison between infected and non infected pigs (all compartments and not merged replicates)
 require(ggpubr)
-alphadiv%>%
+require(RColorBrewer)
+sdt.pig%>%
   dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
   ggplot(aes(x= InfectionStatus, y= Observed))+
   geom_boxplot(color= "black", alpha= 0.5)+
@@ -112,7 +179,7 @@ alphadiv%>%
   stat_compare_means(method =  "anova", label.y = 10.5, label.x = 2)-> A
 
 ###General comparison between infected and non infected pigs by compartments (not merged replicates)
-alphadiv%>%
+sdt.pig%>%
   dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
   mutate(Compartment = fct_relevel(Compartment, 
                             "Duodenum", "Jejunum", "Ileum", 
@@ -129,67 +196,222 @@ alphadiv%>%
   stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Duodenum", paired = F, na.rm = TRUE)+
   stat_compare_means(method =  "anova", label.y = 5, label.x = 4)-> B
 
-#pairwise.wilcox.test(alphadiv$Observed, alphadiv$Compartment, p.adjust.method = "bonferroni")
+pairwise.wilcox.test(sdt.pig$Observed, sdt.pig$Compartment, p.adjust.method = "bonferroni")
 
 ##Beta diversity (rarefied)
 # PCoA plot using the unweighted UniFrac as distance
-wunifrac_dist<- phyloseq::distance(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+wunifrac_dist<- phyloseq::distance(PS3.Pig,
                                    method="unifrac", weighted=F)
-ordination<- ordinate(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+ordination<- ordinate(PS3.Pig,
                       method="PCoA", distance=wunifrac_dist)
-plot_ordination(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), ordination)+ 
+plot_ordination(PS3.Pig, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
   labs(title = "Unweighted UniFrac",tag= "A)")+
   theme_bw()+
-  theme(text = element_text(size=16))-> C
+  theme(text = element_text(size=16))
 
 # PCoA plot using the weighted UniFrac as distance
-unifrac_dist<- phyloseq::distance(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+unifrac_dist<- phyloseq::distance(PS3.Pig,
                                   method="unifrac", weighted=T)
-ordination<- ordinate(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+ordination<- ordinate(PS3.Pig,
                       method="PCoA", distance=unifrac_dist)
-plot_ordination(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), ordination)+ 
+plot_ordination(PS3.Pig, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
   labs(title = "Weighted UniFrac", tag= "B)")+
   theme_bw()+
-  theme(text = element_text(size=16)) ->D
+  theme(text = element_text(size=16))
 
 # PCoA plot using Bray-Curtis as distance
-bray_dist<- phyloseq::distance(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), 
+bray_dist<- phyloseq::distance(PS3.Pig, 
                                method="bray", weighted=T)
-ordination<- ordinate(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))),
+ordination<- ordinate(PS3.Pig,
                       method="PCoA", distance=bray_dist)
-plot_ordination(subset_samples(PS3, !(Compartment%in%c("Faeces", "Negative", "Ascaris"))), ordination)+ 
+plot_ordination(PS3.Pig, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
-  labs(title = "Bray-Curtis", tag= "C)")+
+  labs(title = "Bray-Curtis dissimilarity", tag= "A)")+
   theme_bw()+
-  theme(text = element_text(size=16))-> E
+  theme(text = element_text(size=16))+
+  geom_text (x = 0.25, y = 0.35, label = paste ("Bray-Curtis~ Compartment+Pig+Infection+Plate, \n PERMANOVA, Compartment p= 0.001; R^2= 0.1485"))-> C
+
+##Adonis PERMANOVA
+#Is beta diversity vary function of the compartment, pig, infection status or technical predictors
+bd.pig<- vegan::adonis(bray_dist~ Compartment + System + InfectionStatus + Barcode_Plate, Barcode_Well,
+              permutations = 999, data = sdt.pig)
+bd.pig ##Manually added to the plot 
+###Yes, Compartment and Plate are the most significant predictors
+## Calculate multivariate dispersion (aka distance to the centroid)
+mvd.pig<- vegan::betadisper(bray_dist, sdt.pig$Compartment, type = "centroid")
+vegan::permutest(mvd.pig, permutations = 999)
+anova(mvd.pig)
+plot(mvd.pig) ##Same than plot C
+boxplot(mvd.pig)
+plot(TukeyHSD(mvd.pig))
+###Add sample to the centroid from each sample to sdt.pig
+tmp<- as.data.frame(mvd.pig$distances)
+colnames(tmp)<- c("distances")
+cbind(sdt.pig, tmp)-> sdt.pig
+###Linear model 
+summary(lm(sdt.pig, formula = distances~ Compartment, na.action = na.exclude))
+
+###Group comparisons 
+require(rstatix)
+###Infected pigs
+sdt.pig %>% 
+  dplyr::filter(InfectionStatus%in%c("Infected"))%>%
+  wilcox_test(distances ~ Compartment)%>%
+  add_significance()-> tests
+
+sdt.pig%>% 
+  dplyr::filter(InfectionStatus%in%c("Infected"))%>%
+  wilcox_effsize(distances ~ Compartment)
+
+###Statistical difference just between Jejunum and Cecum 
+###Non-Infected pigs
+sdt.pig %>% 
+  dplyr::filter(InfectionStatus%in%c("Non_infected"))%>%
+  wilcox_test(distances ~ Compartment)%>%
+  add_significance()
+
+sdt.pig%>% 
+  dplyr::filter(InfectionStatus%in%c("Non_infected"))%>%
+  wilcox_effsize(distances ~ Compartment)
+
+###Statistical difference just between Jejunum and Cecum (TODO: add significance)
+sdt.pig%>%
+  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  ggplot(aes(x= Compartment, y= distances))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("GI compartment")+
+  ylab("Beta diversity (distance to coentroid)")+
+  scale_color_brewer(palette = "Set3")+
+  labs(tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  facet_wrap(~InfectionStatus)-> D
 
 require(grid)
 require(gridExtra)
-png("Figures/Q1_Alphadiv_Compartment.png", units = 'in', res = 300, width=4, height=3)
+#png("Figures/Q1_Alphadiv_Compartment.png", units = 'in', res = 300, width=4, height=3)
 grid.arrange(A, B)
-dev.off()
+#dev.off()
 
-png("Figures/Q1_Betadiv_Compartment.png", units = 'in', res = 300, width=4, height=3)
-grid.arrange(C, D, E)
-dev.off()
+#png("Figures/Q1_Betadiv_Compartment.png", units = 'in', res = 300, width=4, height=3)
+grid.arrange(C, D)
+#dev.off()
 
-##Prune samples 
-##Pig samples (not faeces)
-PS3.Pig<- subset_samples(PS3, AnimalSpecies=="Pig"&Compartment!="Faeces")
-sdt.pig <- data.table(as(sample_data(PS3.Pig), "data.frame"), keep.rownames = T)
-##Just faeces samples
-PS3.Fec<- subset_samples(PS3, Compartment=="Faeces")
-sdt.fec <- data.table(as(sample_data(PS3.Fec), "data.frame"), keep.rownames = T)
-##Pig samples (duodenum) and Ascaris
-PS3.PA<- subset_samples(PS3, Compartment%in%c("Duodenum", "Ascaris"))
-sdt.PA <- data.table(as(sample_data(PS3.PA), "data.frame"), keep.rownames = T)
+###Question 2:
+###How does the Ascaris microbiome compare to that of the porcine intestinal microbiome?
+###General comparison between infected pigs (Jejunum and Ascaris and not merged replicates)
+sdt.PA%>%
+  dplyr::filter(!(InfectionStatus%in%c("Non_infected")))%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Jejunum", "Ascaris"))%>%
+  ggplot(aes(x= Compartment, y= Observed))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("GI compartment")+
+  scale_color_brewer(palette = "Set3")+
+  labs(tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Jejunum", paired = F, na.rm = TRUE)+
+  stat_compare_means(method =  "anova", label.y = 5, label.x = 2)
 
-##Pig samples (no faeces) and Ascaris
+##Beta diversity (rarefied)
+# PCoA plot using the unweighted UniFrac as distance
+wunifrac_dist<- phyloseq::distance(PS3.PA,
+                                   method="unifrac", weighted=F)
+ordination<- ordinate(PS3.PA,
+                      method="PCoA", distance=wunifrac_dist)
+plot_ordination(PS3.PA, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(size=3, aes(shape= Compartment, color= System))+
+  scale_color_brewer(palette = "Paired")+
+  labs(title = "Unweighted UniFrac",tag= "A)")+
+  theme_bw()+
+  theme(text = element_text(size=16))
+
+# PCoA plot using the weighted UniFrac as distance
+unifrac_dist<- phyloseq::distance(PS3.PA,
+                                  method="unifrac", weighted=T)
+ordination<- ordinate(PS3.PA,
+                      method="PCoA", distance=unifrac_dist)
+plot_ordination(subset_samples(PS3.PA, !(System%in%c("SH"))), ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(size=3, aes(shape= Compartment, color= System))+
+  scale_color_brewer(palette = "Paired")+
+  labs(title = "Weighted UniFrac",tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))
+
+# PCoA plot using Bray-Curtis as distance
+bray_dist<- phyloseq::distance(PS3.PA, 
+                               method="bray", weighted=T)
+ordination<- ordinate(subset_samples(PS3.PA, !(System%in%c("SH"))),
+                      method="PCoA", distance=bray_dist)
+plot_ordination(subset_samples(PS3.PA, !(System%in%c("SH"))), ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(size=3, aes(shape= Compartment, color= System))+
+  scale_color_brewer(palette = "Paired")+
+  labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))#+
+  #geom_text (x = 0.25, y = 0.35, label = paste ("Bray-Curtis~ Compartment+Pig+Infection+Plate, \n PERMANOVA, Compartment p= 0.001; R^2= 0.1485"))-> C
+
+##Adonis PERMANOVA
+#Is beta diversity vary function of the compartment, pig, infection status or technical predictors
+bd.PA<- vegan::adonis(bray_dist~ Compartment + System + Barcode_Plate, Barcode_Well,
+                       permutations = 999, data = sdt.PA)
+bd.PA ##Manually added to the plot 
+###Yes, Compartment, System and Plate are the most significant predictors
+## Calculate multivariate dispersion (aka distance to the centroid)
+mvd.PA<- vegan::betadisper(bray_dist, sdt.PA$Compartment, type = "centroid")
+vegan::permutest(mvd.PA, permutations = 999)
+anova(mvd.PA)
+plot(mvd.PA) ##Same than plot C
+boxplot(mvd.PA)
+plot(TukeyHSD(mvd.PA))
+###Add sample to the centroid from each sample to sdt.PA
+tmp<- as.data.frame(mvd.PA$distances)
+colnames(tmp)<- c("distances")
+cbind(sdt.PA, tmp)-> sdt.PA
+###Linear model 
+summary(lm(sdt.PA, formula = distances~ Compartment, na.action = na.exclude))
+
+###Group comparisons 
+require(rstatix)
+###Jejunum vs Ascaris
+sdt.PA %>% 
+  wilcox_test(distances ~ Compartment)%>%
+  add_significance()
+
+sdt.PA%>% 
+  wilcox_effsize(distances ~ Compartment)
+
+###Statistical difference just between Jejunum  (TODO: add significance)
+sdt.PA%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Jejunum", "Ascaris"))%>%
+  ggplot(aes(x= Compartment, y= distances))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("GI compartment")+
+  ylab("Beta diversity (distance to coentroid)")+
+  scale_color_brewer(palette = "Set3")+
+  labs(tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))#+
+  #facet_wrap(~InfectionStatus)-> D
+
+
+##Pig samples (no faeces) and Ascaris Merged replicates (Not finished from here on!)
 PS3.PA2<- subset_samples(PS3, Compartment!="Faeces")
 sdt.PA2 <- data.table(as(sample_data(PS3.PA2), "data.frame"), keep.rownames = T)
 sample_data(PS3.PA2)$Replicates<- paste(sdt.PA2$System, sdt.PA2$Compartment, sep = ".")
