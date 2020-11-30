@@ -203,7 +203,7 @@ sample_names(asv)
 sample<- sample_data(sample)
 sample_names(sample) <- sample_names(asv)
 ##3) Use taxa matrix and transform it to "tax table" format
-tax<-tax_table(taxamat)
+tax<-tax_table(as.matrix(taxamat))
 sample_names(tax)
 
 PS <- merge_phyloseq(asv, tax)
@@ -213,6 +213,8 @@ require(ape)
 phylotree<- rtree(ntaxa(PS), rooted=TRUE, tip.label=taxa_names(PS))
 
 PS <- merge_phyloseq(asv, sample, tax, phylotree)
+
+table(sample$System, sample$Compartment) ## ---> README sample overview (previous filtering)
 
 saveRDS(PS, file="/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds")
 saveRDS(sample, file="/SAN/Victors_playground/Ascaris_Microbiome/output/sample.Rds")

@@ -12,11 +12,10 @@ if(!exists("PS")){
     source("1_Dada2_Pipeline.R") ## Run the script at base directory of repository!   
   } else {
     PS<- readRDS(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds") ##New annotation SILVA
+    ##Eliminate "empty" samples 
+    PS <- prune_samples(sample_sums(PS)>0, PS)
   }
 }
-
-##Eliminate "empty" samples 
-PS <- prune_samples(sample_sums(PS)>0, PS)
 
 ##Filtering 
 ##1) Sample filtering: Filtering samples with low counts  
