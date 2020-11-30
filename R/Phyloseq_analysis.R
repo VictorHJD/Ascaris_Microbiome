@@ -312,6 +312,20 @@ sdt.fec <- data.table(as(sample_data(PS3.Fec), "data.frame"), keep.rownames = T)
 PS3.PA<- subset_samples(PS3, Compartment%in%c("Duodenum", "Ascaris"))
 sdt.PA <- data.table(as(sample_data(PS3.PA), "data.frame"), keep.rownames = T)
 
+##Pig samples (no faeces) and Ascaris
+PS3.PA2<- subset_samples(PS3, Compartment!="Faeces")
+sdt.PA2 <- data.table(as(sample_data(PS3.PA2), "data.frame"), keep.rownames = T)
+sample_data(PS3.PA2)$Replicates<- paste(sdt.PA2$System, sdt.PA2$Compartment, sep = ".")
+sdt.PA2$Replicate<- paste(sdt.PA2$System, sdt.PA2$Compartment, sep = ".")
+sdt.PA2%>%
+  select(InfectionStatus,AnimalSpecies,WormSex,Live,Compartment,System, Replicate)%>%
+  distinct()->sdt.PA2
+sdt.PA2<- sample_data(sdt.PA2)
+sample_names(sdt.PA2) <- sdt.PA2$Replicate
+
+PS3.PA2<-merge_samples(PS3.PA2, "Replicates")
+
+
 bray_dist<- phyloseq::distance(PS3.Fec, method="bray", weighted=T)
 ordination<- ordinate(PS3.Fec, method="PCoA", distance=bray_dist)
 plot_ordination(PS3.Fec, ordination)+ 
@@ -341,3 +355,13 @@ plot_ordination(PS3.PA, ordination, color= "System", shape="Compartment")+
   theme(text = element_text(size=16))
 
 vegan::adonis(bray_dist ~ System+Compartment+Barcode_Plate+Barcode_Well, data = sdt.PA)
+
+bray_dist<- phyloseq::distance(PS3.PA2, method="bray", weighted=T)
+ordination<- ordinate(PS3.PA2, method="PCoA", distance=bray_dist)
+plot_ordination(PS3.PA2, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(size=5, alpha= 0.75)+
+  labs(tag= "D)")+
+  theme_bw()+
+  scale_colour_brewer(type="qual", palette="Paired")+
+  theme(text = element_text(size=16))
