@@ -458,7 +458,6 @@ cbind(sdt.PA, tmp)-> sdt.PA
 summary(lm(sdt.PA, formula = distances~ Compartment, na.action = na.exclude))
 
 ###Group comparisons 
-require(rstatix)
 ###Jejunum vs Ascaris
 sdt.PA %>% 
   wilcox_test(distances ~ Compartment)%>%
@@ -485,17 +484,32 @@ sdt.PA%>%
 ##Merge compartment data
 
 ##Pig samples (no faeces) and Ascaris Merged replicates (Not finished from here on!)
-PS3.PA2<- subset_samples(PS3, Compartment!="Faeces")
-sdt.PA2 <- data.table(as(sample_data(PS3.PA2), "data.frame"), keep.rownames = T)
-sample_data(PS3.PA2)$Replicates<- paste(sdt.PA2$System, sdt.PA2$Compartment, sep = ".")
-sdt.PA2$Replicate<- paste(sdt.PA2$System, sdt.PA2$Compartment, sep = ".")
-sdt.PA2%>%
+#PS3.PA2<- subset_samples(PS3, Compartment!="Faeces")
+#sdt.PA2 <- data.table(as(sample_data(PS3.PA2), "data.frame"), keep.rownames = T)
+sample_data(PS3.Pig)$Replicates<- paste(sdt.pig$System, sdt.pig$Compartment, sep = ".")
+sdt.pig$Replicate<- paste(sdt.pig$System, sdt.pig$Compartment, sep = ".")
+sdt.pig%>%
   select(InfectionStatus,AnimalSpecies,WormSex,Live,Compartment,System, Replicate)%>%
-  distinct()->sdt.PA2
-sdt.PA2<- sample_data(sdt.PA2)
-sample_names(sdt.PA2) <- sdt.PA2$Replicate
+  distinct()->sdt.pig2
+sdt.pig2<- sample_data(sdt.pig2)
+sample_names(sdt.pig2) <- sdt.pig2$Replicate
 
-PS3.PA2<-merge_samples(PS3.PA2, "Replicates")
+PS3.pig2<-merge_samples(PS3.Pig, "Replicates")
+sample_data(PS3.pig2)<- sdt.pig2
+
+alphadiv.pig2<- estimate_richness(PS3.pig2) ###Estimate alpha diversity values
+alphadiv.pig2%>%
+  rownames_to_column()->tmp1
+
+row.names(sdt.pig2)<- sdt.pig2$Replicate
+names(sdt.pig2)[names(sdt.pig2) == "Replicate"] <- "rowname"
+
+tmp1<-inner_join(tmp1, sdt.pig2, by="rowname")
+rownames(tmp1)<- tmp1$rowname
+tmp1$rowname<- NULL
+sdt.pig2<- tmp1
+rm(tmp1,alphadiv.pig2)
+
 
 bray_dist<- phyloseq::distance(PS3.Fec, method="bray", weighted=T)
 ordination<- ordinate(PS3.Fec, method="PCoA", distance=bray_dist)
