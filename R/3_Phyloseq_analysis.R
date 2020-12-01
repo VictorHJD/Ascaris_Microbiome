@@ -12,10 +12,12 @@ if(!exists("PS")){
     source("1_Dada2_Pipeline.R") ## Run the script at base directory of repository!   
   } else {
     PS<- readRDS(file = "/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqComp.Rds") ##New annotation SILVA
+    sample<- data.table(as(sample_data(PS), "data.frame"), keep.rownames = T)
     ##Eliminate "empty" samples 
     PS <- prune_samples(sample_sums(PS)>0, PS)
   }
 }
+##Extract sample data
 
 ##Filtering 
 ##1) Sample filtering: Filtering samples with low counts  
@@ -109,7 +111,7 @@ tmp1<-inner_join(tmp1, sdt.pig, by="rowname")
 rownames(tmp1)<- tmp1$rowname
 tmp1$rowname<- NULL
 sdt.pig<- tmp1
-rm(tmp1,aalphadiv.pig)
+rm(tmp1,alphadiv.pig)
 
 ##Just faeces samples (difference accross time)
 PS3.Fec<- subset_samples(PS3, Compartment=="Faeces")
@@ -165,25 +167,66 @@ rm(tmp1,alphadiv.Asc)
 ###General comparison between infected and non infected pigs (all compartments and not merged replicates)
 require(ggpubr)
 require(RColorBrewer)
-sdt.pig%>%
-  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
-  ggplot(aes(x= InfectionStatus, y= Observed))+
-  geom_boxplot(color= "black", alpha= 0.5)+
-  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
-  xlab("Infection status")+
-  scale_color_brewer(palette = "Set3")+
-  labs(tag= "A)")+
-  theme_bw()+
-  theme(text = element_text(size=16))+
-  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Non_infected", paired = F, na.rm = TRUE)+
-  stat_compare_means(method =  "anova", label.y = 10.5, label.x = 2)-> A
-
+require(rstatix)
 ###General comparison between infected and non infected pigs by compartments (not merged replicates)
+###Group comparisons 
+### Infected vs Non Infected
+sdt.pig %>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                             "Duodenum", "Jejunum", "Ileum", 
+                                             "Cecum", "Colon"))%>%
+  dplyr::group_by(Compartment)%>%
+  wilcox_test(Observed ~ InfectionStatus)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
+
+sdt.pig %>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(Compartment)%>%
+  wilcox_effsize(Observed ~ InfectionStatus)
+
+##Plot 
 sdt.pig%>%
   dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
   mutate(Compartment = fct_relevel(Compartment, 
-                            "Duodenum", "Jejunum", "Ileum", 
-                            "Cecum", "Colon"))%>%
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  ggplot(aes(x= Compartment, y= Observed))+
+  geom_boxplot(aes(color= InfectionStatus), alpha= 0.5)+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= InfectionStatus), color= "black")+
+  xlab("GI compartment")+
+  labs(tag= "A)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")-> A
+
+###Infected pigs, non infected compartment
+sdt.pig %>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(InfectionStatus)%>%
+  wilcox_test(Observed ~ Compartment)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
+
+sdt.pig %>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(InfectionStatus)%>%
+  wilcox_effsize(Observed ~ Compartment)
+  
+##PLot 
+sdt.pig%>%
+  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
   ggplot(aes(x= Compartment, y= Observed))+
   geom_boxplot(color= "black", alpha= 0.5)+
   geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
@@ -192,11 +235,8 @@ sdt.pig%>%
   labs(tag= "B)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  facet_wrap(~InfectionStatus)+
-  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Duodenum", paired = F, na.rm = TRUE)+
-  stat_compare_means(method =  "anova", label.y = 5, label.x = 4)-> B
-
-pairwise.wilcox.test(sdt.pig$Observed, sdt.pig$Compartment, p.adjust.method = "bonferroni")
+  facet_wrap(~InfectionStatus)+ 
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")-> B
 
 ##Beta diversity (rarefied)
 # PCoA plot using the unweighted UniFrac as distance
@@ -234,7 +274,7 @@ plot_ordination(PS3.Pig, ordination)+
   labs(title = "Bray-Curtis dissimilarity", tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  geom_text (x = 0.25, y = 0.35, label = paste ("Bray-Curtis~ Compartment+Pig+Infection+Plate, \n PERMANOVA, Compartment p= 0.001; R^2= 0.1485"))-> C
+  geom_text (x = 0.25, y = 0.35, label = paste ("Bray-Curtis~ Compartment+Pig+Infection+Plate, \n PERMANOVA, Compartment p= 0.001; R-squared= 0.1485"))-> C
 
 ##Adonis PERMANOVA
 #Is beta diversity vary function of the compartment, pig, infection status or technical predictors
@@ -257,29 +297,59 @@ cbind(sdt.pig, tmp)-> sdt.pig
 summary(lm(sdt.pig, formula = distances~ Compartment, na.action = na.exclude))
 
 ###Group comparisons 
-require(rstatix)
-###Infected pigs
+### Infected vs Non Infected
 sdt.pig %>% 
-  dplyr::filter(InfectionStatus%in%c("Infected"))%>%
-  wilcox_test(distances ~ Compartment)%>%
-  add_significance()-> tests
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(Compartment)%>%
+  wilcox_test(distances ~ InfectionStatus)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
 
-sdt.pig%>% 
-  dplyr::filter(InfectionStatus%in%c("Infected"))%>%
+sdt.pig %>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(Compartment)%>%
+  wilcox_effsize(distances ~ InfectionStatus)
+
+##Plot 
+sdt.pig%>%
+  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  ggplot(aes(x= Compartment, y= distances))+
+  geom_boxplot(aes(color= InfectionStatus), alpha= 0.5)+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= InfectionStatus), color= "black")+
+  xlab("GI compartment")+
+  ylab("Beta diversity (distance to coentroid)")+
+  labs(tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")-> D
+
+###Infected pigs, non infected by compartment
+sdt.pig %>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(InfectionStatus)%>%
+  wilcox_test(distances ~ Compartment)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
+
+sdt.pig %>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(InfectionStatus)%>%
   wilcox_effsize(distances ~ Compartment)
 
-###Statistical difference just between Jejunum and Cecum 
-###Non-Infected pigs
-sdt.pig %>% 
-  dplyr::filter(InfectionStatus%in%c("Non_infected"))%>%
-  wilcox_test(distances ~ Compartment)%>%
-  add_significance()
-
-sdt.pig%>% 
-  dplyr::filter(InfectionStatus%in%c("Non_infected"))%>%
-  wilcox_effsize(distances ~ Compartment)
-
-###Statistical difference just between Jejunum and Cecum (TODO: add significance)
+##PLot 
 sdt.pig%>%
   dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
   mutate(Compartment = fct_relevel(Compartment, 
@@ -289,12 +359,12 @@ sdt.pig%>%
   geom_boxplot(color= "black", alpha= 0.5)+
   geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
   xlab("GI compartment")+
-  ylab("Beta diversity (distance to coentroid)")+
-  scale_color_brewer(palette = "Set3")+
-  labs(tag= "B)")+
+  ylab("Beta diversity (distance to centroid)")+
+  labs(tag= "C)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  facet_wrap(~InfectionStatus)-> D
+  facet_wrap(~InfectionStatus)+ 
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -.095, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->E
 
 require(grid)
 require(gridExtra)
@@ -303,7 +373,9 @@ grid.arrange(A, B)
 #dev.off()
 
 #png("Figures/Q1_Betadiv_Compartment.png", units = 'in', res = 300, width=4, height=3)
-grid.arrange(C, D)
+grid.arrange(C, D, E, widths = c(2, 2),
+             layout_matrix = rbind(c(1, 1),
+                                   c(2, 3)))
 #dev.off()
 
 ###Question 2:
@@ -318,7 +390,7 @@ sdt.PA%>%
   geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
   xlab("GI compartment")+
   scale_color_brewer(palette = "Set3")+
-  labs(tag= "B)")+
+  labs(tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
   stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Jejunum", paired = F, na.rm = TRUE)+
@@ -410,6 +482,7 @@ sdt.PA%>%
   theme(text = element_text(size=16))#+
   #facet_wrap(~InfectionStatus)-> D
 
+##Merge compartment data
 
 ##Pig samples (no faeces) and Ascaris Merged replicates (Not finished from here on!)
 PS3.PA2<- subset_samples(PS3, Compartment!="Faeces")
