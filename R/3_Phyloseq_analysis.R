@@ -657,39 +657,206 @@ dev.off()
 ##
 ### Local Ascaris vs SH
 sdt.Asc%>% 
-  dplyr::group_by(Compartment)%>%
-  wilcox_test(Chao1 ~ InfectionStatus)%>%
+  #dplyr::group_by(System)%>%
+  wilcox_test(Chao1 ~ Live)%>%
   adjust_pvalue(method = "bonferroni") %>%
   add_significance()%>%
-  add_xy_position(x = "Compartment")-> stats.test
+  add_xy_position(x = "System")-> stats.test
 
 ##Save statistical analysis
 x <- stats.test
 x$groups<- NULL
-write.csv(x, "Tables/Q1_Infected_NonInfected_Compartment.csv")
+write.csv(x, "Tables/Q3_Pig_SH.csv")
 
-sdt.pig2%>% 
-  mutate(Compartment = fct_relevel(Compartment, 
-                                   "Duodenum", "Jejunum", "Ileum", 
-                                   "Cecum", "Colon"))%>%
-  dplyr::group_by(Compartment)%>%
-  wilcox_effsize(Chao1 ~ InfectionStatus)
+sdt.Asc%>% 
+  wilcox_effsize(Chao1 ~ Live)
 
 ##Plot 
-sdt.pig2%>%
-  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
-  mutate(Compartment = fct_relevel(Compartment, 
-                                   "Duodenum", "Jejunum", "Ileum", 
-                                   "Cecum", "Colon"))%>%
-  ggplot(aes(x= Compartment, y= Chao1))+
-  geom_boxplot(aes(color= InfectionStatus), alpha= 0.5)+
-  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= InfectionStatus), color= "black")+
-  xlab("GI compartment")+
+sdt.Asc%>%
+  ggplot(aes(x= Live, y= Chao1))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("Worm origin")+
   ylab("Diversity (Chao1 Index)")+
   labs(tag= "A)", caption = get_pwc_label(stats.test))+
   theme_bw()+
   theme(text = element_text(size=16))+
-  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p.adj}{p.adj.signif}")-> A
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p.adj}{p.adj.signif}")-> J
+
+# PCoA plot using Bray-Curtis as distance
+bray_dist<- phyloseq::distance(PS3.Asc, 
+                               method="bray", weighted=T)
+ordination<- ordinate(PS3.Asc,
+                      method="PCoA", distance=bray_dist)
+plot_ordination(PS3.Asc, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= System), color= "black")+
+  labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  geom_text (x = -.20, y = 0.0, 
+             label = paste ("Bray-Curtis~ System+Origin+Sex, \n PERMANOVA, System p= 0.001; R^2= 0.3189"))-> K
+
+##Adonis PERMANOVA
+#Is beta diversity vary function of the compartment, pig, infection status or technical predictors
+bd.Asc<- vegan::adonis(bray_dist~ System+Live+WormSex,
+                      permutations = 999, data = sdt.Asc)
+bd.Asc ##Manually added to the plot 
+write.csv(bd.Asc[[1]], "Tables/Q3_Permanova.csv")
+
+###Yes, System is the most significant predictors
+## Calculate multivariate dispersion (aka distance to the centroid)
+mvd.Asc<- vegan::betadisper(bray_dist, sdt.Asc$System, type = "centroid")
+vegan::permutest(mvd.Asc, permutations = 999)
+anova(mvd.Asc)
+plot(mvd.Asc)
+boxplot(mvd.Asc)
+plot(TukeyHSD(mvd.Asc))
+###Add sample to the centroid from each sample to sdt.PA
+tmp<- as.data.frame(mvd.Asc$distances)
+colnames(tmp)<- c("distances")
+cbind(sdt.Asc, tmp)-> sdt.Asc
+###Linear model 
+summary(lm(sdt.Asc, formula = distances~ System, na.action = na.exclude))
+
+###Distances by system
+sdt.Asc%>%
+  wilcox_test(distances ~ System)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "System")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q3_System_distances.csv")
+
+sdt.Asc%>%
+  wilcox_effsize(distances ~ System)
+
+##PLot 
+sdt.Asc%>%
+  ggplot(aes(x= System, y= distances))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("Worm Origin")+
+  ylab("Beta diversity (distance to centroid)")+
+  labs(tag= "A)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45))+
+  stat_pvalue_manual(stats.test, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->L
+
+### Female vs Sex Ascaris No SH
+sdt.Asc%>% 
+  dplyr::filter(!System%in%("SH"))%>%
+  wilcox_test(Chao1 ~ WormSex)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "WormSex")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q3_Worm_Sex.csv")
+
+sdt.Asc%>%  
+  dplyr::filter(!System%in%("SH"))%>%
+  wilcox_effsize(Chao1 ~ WormSex)
+
+##Plot 
+sdt.Asc%>%
+  dplyr::filter(!System%in%("SH"))%>%
+  ggplot(aes(x= WormSex, y= Chao1))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("Worm sex")+
+  ylab("Diversity (Chao1 Index)")+
+  labs(tag= "A)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p.adj}{p.adj.signif}")-> M
+
+# PCoA plot using Bray-Curtis as distance
+bray_dist<- phyloseq::distance(subset_samples(PS3.Asc, System!="SH"), 
+                               method="bray", weighted=T)
+ordination<- ordinate(subset_samples(PS3.Asc, System!="SH"),
+                      method="PCoA", distance=bray_dist)
+plot_ordination(subset_samples(PS3.Asc, System!="SH"), ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= WormSex), color= "black")+
+  labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  geom_text (x = 0, y = 0.2, 
+             label = paste ("Bray-Curtis~ System+Sex, \n PERMANOVA, System p= 0.008; R^2= 0.2404"))-> N
+
+##Adonis PERMANOVA
+#Is beta diversity vary function of the compartment, pig, infection status or technical predictors
+bd.Asc<- vegan::adonis(bray_dist~ System+WormSex,
+                       permutations = 999, data = subset(sdt.Asc, System!="SH"))
+bd.Asc ##Manually added to the plot 
+write.csv(bd.Asc[[1]], "Tables/Q3_Permanova2.csv")
+
+###Yes, System is the most significant predictors
+## Calculate multivariate dispersion (aka distance to the centroid)
+mvd.Asc<- vegan::betadisper(bray_dist, subset(sdt.Asc, System!="SH")$WormSex, type = "centroid")
+vegan::permutest(mvd.Asc, permutations = 999)
+anova(mvd.Asc)
+plot(mvd.Asc)
+boxplot(mvd.Asc)
+plot(TukeyHSD(mvd.Asc))
+###Add sample to the centroid from each sample to sdt.PA
+tmp<- as.data.frame(mvd.Asc$distances)
+colnames(tmp)<- c("distances2")
+sdt.Asc%>%
+  dplyr::filter(!System%in%("SH"))->sdt.Asc2
+cbind(sdt.Asc2, tmp)-> sdt.Asc2
+###Linear model 
+summary(lm(sdt.Asc2, formula = distances~ System+WormSex, na.action = na.exclude))
+
+###Distances by system
+sdt.Asc2%>%
+  wilcox_test(distances ~ WormSex)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "WormSex")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q3_Sex_distances_No_SH.csv")
+
+sdt.Asc2%>%
+  wilcox_effsize(distances ~ WormSex)
+
+##PLot 
+sdt.Asc2%>%
+  ggplot(aes(x= WormSex, y= distances))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("System")+
+  ylab("Beta diversity (distance to centroid)")+
+  labs(tag= "B)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45))+
+  stat_pvalue_manual(stats.test, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->O
+
+
+png("Figures/Q3_Alphadiv_Worm_Origin.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(J, K)
+dev.off()
+
+png("Figures/Q3_Betadiv_Distances_Origin.png", units = 'in', res = 300, width=10, height=8)
+grid.arrange(L)
+dev.off()
+
+png("Figures/Q3_Alphadiv_Worm_Sex.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(M, N)
+dev.off()
+
+png("Figures/Q3_Betadiv_Distances_Sex.png", units = 'in', res = 300, width=10, height=8)
+grid.arrange(O)
+dev.off()
 
 ###Group comparisons 
 ###Jejunum vs Ascaris

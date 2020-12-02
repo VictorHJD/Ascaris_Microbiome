@@ -1,0 +1,7 @@
+"",".y.","group1","group2","n1","n2","statistic","p","p.adj","p.adj.signif","y.position","xmin","xmax"
+"1","distances","Pig1","Pig2",5,7,25,0.268,1,"ns",0.73248,1,2
+"2","distances","Pig1","Pig3",5,10,23,0.859,1,"ns",0.826656,1,3
+"3","distances","Pig1","Pig5",5,1,5,0.333,1,"ns",0.920832,1,4
+"4","distances","Pig2","Pig3",7,10,15,0.055,0.33,"ns",1.015008,2,3
+"5","distances","Pig2","Pig5",7,1,7,0.25,1,"ns",1.109184,2,4
+"6","distances","Pig3","Pig5",10,1,10,0.182,1,"ns",1.20336,3,4
