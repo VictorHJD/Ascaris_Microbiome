@@ -460,28 +460,92 @@ dev.off()
 ###Question 2:
 ###How does the Ascaris microbiome compare to that of the porcine intestinal microbiome?
 ###General comparison between infected pigs (Jejunum and Ascaris and not merged replicates)
-sdt.PA%>%
-  dplyr::filter(!(InfectionStatus%in%c("Non_infected")))%>%
+### Infected vs Non Infected
+sdt.PA2$InfectionStatus[is.na(sdt.PA2$InfectionStatus)] <- "Worm" ##Remove NAs
+sdt.PA2%>%
   mutate(Compartment = fct_relevel(Compartment, 
-                                   "Jejunum", "Ascaris"))%>%
-  ggplot(aes(x= Compartment, y= Observed))+
-  geom_boxplot(color= "black", alpha= 0.5)+
-  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon", "Ascaris"))%>%
+  #dplyr::group_by(Compartment)%>%
+  wilcox_test(Chao1 ~ InfectionStatus)%>%
+  adjust_pvalue(method = "bonferroni")%>%
+  add_significance()%>%
+  add_xy_position(x = "InfectionStatus")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q2_Infected_NonInfected_Worm.csv")
+
+sdt.PA2%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  #dplyr::group_by(Compartment)%>%
+  wilcox_effsize(Chao1 ~ InfectionStatus)
+
+sdt.PA2%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon", "Ascaris"))%>%
+  ggplot(aes(x= Compartment, y= Chao1))+
+  geom_boxplot(aes(color= InfectionStatus), alpha= 0.5)+
+  scale_color_manual(values = c("#F8766D", "#619CFF", "#00BA38"),
+                     aesthetics = c("colour", "fill"))+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, 
+             aes(fill= InfectionStatus, color= InfectionStatus), color= "black")+
   xlab("GI compartment")+
-  scale_color_brewer(palette = "Set3")+
-  labs(tag= "A)")+
+  ylab("Diversity (Chao1)")+
   theme_bw()+
-  theme(text = element_text(size=16))+
-  stat_compare_means(label= "p.signif", method = "t.test", ref.group = "Jejunum", paired = F, na.rm = TRUE)+
-  stat_compare_means(method =  "anova", label.y = 5, label.x = 2)
+  labs(tag= "A)", caption = get_pwc_label(stats.test))+
+  theme(text = element_text(size=16))-> f
+
+###Infected pigs, non infected compartment
+sdt.PA2%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  #dplyr::group_by(InfectionStatus)%>%
+  wilcox_test(Chao1 ~ Compartment)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q2_Compartment.csv")
+
+sdt.pig2%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  #dplyr::group_by(InfectionStatus)%>%
+  wilcox_effsize(Chao1 ~ Compartment)
+
+##Plot 
+sdt.PA2%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  ggplot(aes(x= Compartment, y= Chao1))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, 
+             aes(fill= System), color= "black")+
+  xlab("GI compartment")+
+  ylab("Diversity (Chao1)")+
+  labs(tag= "B)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45))+
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = T,label = "{p.adj}{p.adj.signif}")-> G
 
 ##Beta diversity (rarefied)
 # PCoA plot using the unweighted UniFrac as distance
-wunifrac_dist<- phyloseq::distance(PS3.PA,
+wunifrac_dist<- phyloseq::distance(PS3.PA2,
                                    method="unifrac", weighted=F)
-ordination<- ordinate(PS3.PA,
+ordination<- ordinate(PS3.PA2,
                       method="PCoA", distance=wunifrac_dist)
-plot_ordination(PS3.PA, ordination)+ 
+plot_ordination(PS3.PA2, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(size=3, aes(shape= Compartment, color= System))+
   scale_color_brewer(palette = "Paired")+
@@ -490,11 +554,11 @@ plot_ordination(PS3.PA, ordination)+
   theme(text = element_text(size=16))
 
 # PCoA plot using the weighted UniFrac as distance
-unifrac_dist<- phyloseq::distance(PS3.PA,
+unifrac_dist<- phyloseq::distance(PS3.PA2,
                                   method="unifrac", weighted=T)
-ordination<- ordinate(PS3.PA,
+ordination<- ordinate(PS3.PA2,
                       method="PCoA", distance=unifrac_dist)
-plot_ordination(subset_samples(PS3.PA, !(System%in%c("SH"))), ordination)+ 
+plot_ordination(PS3.PA2, ordination)+ 
   theme(aspect.ratio=1)+
   geom_point(size=3, aes(shape= Compartment, color= System))+
   scale_color_brewer(palette = "Paired")+
@@ -503,38 +567,129 @@ plot_ordination(subset_samples(PS3.PA, !(System%in%c("SH"))), ordination)+
   theme(text = element_text(size=16))
 
 # PCoA plot using Bray-Curtis as distance
-bray_dist<- phyloseq::distance(PS3.PA, 
+bray_dist<- phyloseq::distance(PS3.PA2, 
                                method="bray", weighted=T)
-ordination<- ordinate(subset_samples(PS3.PA, !(System%in%c("SH"))),
+ordination<- ordinate(PS3.PA2,
                       method="PCoA", distance=bray_dist)
-plot_ordination(subset_samples(PS3.PA, !(System%in%c("SH"))), ordination)+ 
+plot_ordination(PS3.PA2, ordination)+ 
   theme(aspect.ratio=1)+
-  geom_point(size=3, aes(shape= Compartment, color= System))+
-  scale_color_brewer(palette = "Paired")+
-  labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
+  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
+  labs(title = "Bray-Curtis dissimilarity",tag= "A)")+
   theme_bw()+
-  theme(text = element_text(size=16))#+
-  #geom_text (x = 0.25, y = 0.35, label = paste ("Bray-Curtis~ Compartment+Pig+Infection+Plate, \n PERMANOVA, Compartment p= 0.001; R^2= 0.1485"))-> C
+  theme(text = element_text(size=16))+
+  geom_text (x = 0, y = 0.35, 
+             label = paste ("Bray-Curtis~ Compartment+Pig+Infection, \n PERMANOVA, Compartment p= 0.001; R^2= 0.3009"))-> H
 
 ##Adonis PERMANOVA
 #Is beta diversity vary function of the compartment, pig, infection status or technical predictors
-bd.PA<- vegan::adonis(bray_dist~ Compartment + System + Barcode_Plate, Barcode_Well,
-                       permutations = 999, data = sdt.PA)
+bd.PA<- vegan::adonis(bray_dist~ Compartment + System + InfectionStatus,
+                       permutations = 999, data = sdt.PA2)
 bd.PA ##Manually added to the plot 
+write.csv(bd.PA[[1]], "Tables/Q2_Permanova.csv")
+
 ###Yes, Compartment, System and Plate are the most significant predictors
 ## Calculate multivariate dispersion (aka distance to the centroid)
-mvd.PA<- vegan::betadisper(bray_dist, sdt.PA$Compartment, type = "centroid")
+mvd.PA<- vegan::betadisper(bray_dist, sdt.PA2$Compartment, type = "centroid")
 vegan::permutest(mvd.PA, permutations = 999)
 anova(mvd.PA)
-plot(mvd.PA) ##Same than plot C
+plot(mvd.PA)
 boxplot(mvd.PA)
 plot(TukeyHSD(mvd.PA))
 ###Add sample to the centroid from each sample to sdt.PA
 tmp<- as.data.frame(mvd.PA$distances)
 colnames(tmp)<- c("distances")
-cbind(sdt.PA, tmp)-> sdt.PA
+cbind(sdt.PA2, tmp)-> sdt.PA2
 ###Linear model 
-summary(lm(sdt.PA, formula = distances~ Compartment, na.action = na.exclude))
+summary(lm(sdt.PA2, formula = distances~ Compartment, na.action = na.exclude))
+
+###Infected pigs, non infected by compartment
+sdt.PA2%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  #dplyr::group_by(InfectionStatus)%>%
+  wilcox_test(distances ~ Compartment)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q2_Compartment_distances.csv")
+
+sdt.PA2%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  #dplyr::group_by(InfectionStatus)%>%
+  wilcox_effsize(distances ~ Compartment)
+
+##PLot 
+sdt.PA2%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  ggplot(aes(x= Compartment, y= distances))+
+  geom_boxplot(color= "black", alpha= 0.5)+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("GI compartment")+
+  ylab("Beta diversity (distance to centroid)")+
+  labs(tag= "B)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16), axis.text.x = element_text(angle = 45))+
+  #facet_wrap(~InfectionStatus)+ 
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -.095, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->I
+
+png("Figures/Q2_Alphadiv_Compartment.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(f, G)
+dev.off()
+
+png("Figures/Q2_PCoA_Betadiv_Compartment.png", units = 'in', res = 300, width=10, height=8)
+grid.arrange(H)
+dev.off()
+
+png("Figures/Q2_Betadiv_Distances_Compartment.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(I)
+dev.off()
+
+###Question 3: Does the Ascaris microbiome differ between male and female worms?
+##
+### Local Ascaris vs SH
+sdt.Asc%>% 
+  dplyr::group_by(Compartment)%>%
+  wilcox_test(Chao1 ~ InfectionStatus)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q1_Infected_NonInfected_Compartment.csv")
+
+sdt.pig2%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  dplyr::group_by(Compartment)%>%
+  wilcox_effsize(Chao1 ~ InfectionStatus)
+
+##Plot 
+sdt.pig2%>%
+  dplyr::filter(!(Compartment%in%c("Faeces", "Negative", "Ascaris")))%>%
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon"))%>%
+  ggplot(aes(x= Compartment, y= Chao1))+
+  geom_boxplot(aes(color= InfectionStatus), alpha= 0.5)+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= InfectionStatus), color= "black")+
+  xlab("GI compartment")+
+  ylab("Diversity (Chao1 Index)")+
+  labs(tag= "A)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p.adj}{p.adj.signif}")-> A
 
 ###Group comparisons 
 ###Jejunum vs Ascaris
