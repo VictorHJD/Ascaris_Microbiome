@@ -890,6 +890,33 @@ sdt.fec%>%
   theme(text = element_text(size=16))+
   stat_pvalue_manual(stats.test, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->P
 
+# PCoA plot using Bray-Curtis as distance
+bray_dist<- phyloseq::distance(PS3.Fec, 
+                               method="bray", weighted=T)
+ordination<- ordinate(PS3.Fec,
+                      method="PCoA", distance=bray_dist)
+plot_ordination(PS3.Fec, ordination)+ 
+  theme(aspect.ratio=1)+
+  geom_point(shape=21, size=3, aes(fill= DPI), color= "black")+
+  labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  geom_text (x = 0, y = 0.4, 
+             label = paste ("Bray-Curtis~ System+DPI, \n PERMANOVA, DPI p= 0.001; R^2= 0.3601"))->Q
+
+##Adonis PERMANOVA
+#Is beta diversity vary function of the compartment, pig, infection status or technical predictors
+bd.Fec<- vegan::adonis(bray_dist~ System+DPI,
+                       permutations = 999, data = sdt.fec)
+bd.Fec ##Manually added to the plot 
+write.csv(bd.Fec[[1]], "Tables/Q4_Permanova.csv")
+
+
+png("Figures/Q4_Alphadiv_Fecal.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(P, Q)
+dev.off()
+
+
 
 ##Create biom format object for PICRUSt2
 require("biomformat")
