@@ -155,6 +155,8 @@ tmp1$rowname<- NULL
 sdt.fec<- tmp1
 rm(tmp1,alphadiv.fec)
 
+##Fecal samples have no technical replicates NOT merge
+
 ##Pig samples compartment and Ascaris (not SH)
 PS3.PA<- subset_samples(PS3, !(Compartment%in%c("Negative", "Faeces")))
 PS3.PA<- subset_samples(PS3.PA, !(System%in%c("SH")))
@@ -858,71 +860,36 @@ png("Figures/Q3_Betadiv_Distances_Sex.png", units = 'in', res = 300, width=10, h
 grid.arrange(O)
 dev.off()
 
-###Group comparisons 
-###Jejunum vs Ascaris
-sdt.PA %>% 
-  wilcox_test(distances ~ Compartment)%>%
-  add_significance()
+###Additional data --> Track microbiome in fecal samples
+sdt.fec%>%
+  mutate(DPI = fct_relevel(DPI, "2", "14", "21", "42", "49"))%>%
+  wilcox_test(Chao1 ~ DPI)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "DPI")-> stats.test
 
-sdt.PA%>% 
-  wilcox_effsize(distances ~ Compartment)
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q4_Track_infection_Diversity.csv")
 
-###Statistical difference just between Jejunum  (TODO: add significance)
-sdt.PA%>%
-  mutate(Compartment = fct_relevel(Compartment, 
-                                   "Jejunum", "Ascaris"))%>%
-  ggplot(aes(x= Compartment, y= distances))+
-  geom_boxplot(color= "black", alpha= 0.5)+
-  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
-  xlab("GI compartment")+
-  ylab("Beta diversity (distance to coentroid)")+
-  scale_color_brewer(palette = "Set3")+
-  labs(tag= "B)")+
+sdt.fec%>%
+  mutate(DPI = fct_relevel(DPI, "2", "14", "21", "42", "49"))%>%
+  wilcox_effsize(Chao1 ~ DPI)
+
+sdt.fec%>%
+  mutate(DPI = fct_relevel(DPI, "2", "14", "21", "42", "49"))%>%
+  ggplot(aes(x= DPI, y= Chao1))+
+  geom_boxplot(color= "black")+
+  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("Day post infection")+
+  ylab("Diversity (Chao1 Index)")+
+  geom_line(aes(group = System), color= "gray")+
+  labs(tag= "A)", caption = get_pwc_label(stats.test))+
   theme_bw()+
-  theme(text = element_text(size=16))#+
-  #facet_wrap(~InfectionStatus)-> D
+  theme(text = element_text(size=16))+
+  stat_pvalue_manual(stats.test, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->P
 
-
-
-bray_dist<- phyloseq::distance(PS3.Fec, method="bray", weighted=T)
-ordination<- ordinate(PS3.Fec, method="PCoA", distance=bray_dist)
-plot_ordination(PS3.Fec, ordination)+ 
-  theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= DPI), color= "black")+
-  labs(tag= "D)")+
-  theme_bw()+
-  theme(text = element_text(size=16))
-
-bray_dist<- phyloseq::distance(PS3.Pig, method="bray", weighted=T)
-ordination<- ordinate(PS3.Pig, method="PCoA", distance=bray_dist)
-plot_ordination(PS3.Pig, ordination)+ 
-  theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
-  labs(tag= "D)")+
-  theme_bw()+
-  theme(text = element_text(size=16))
-
-bray_dist<- phyloseq::distance(PS3.PA, method="bray", weighted=T)
-ordination<- ordinate(PS3.PA, method="PCoA", distance=bray_dist)
-plot_ordination(PS3.PA, ordination, color= "System", shape="Compartment")+ 
-  theme(aspect.ratio=1)+
-  geom_point(size=5, alpha= 0.75)+
-  labs(tag= "D)")+
-  theme_bw()+
-  scale_colour_brewer(type="qual", palette="Paired")+
-  theme(text = element_text(size=16))
-
-vegan::adonis(bray_dist ~ System+Compartment+Barcode_Plate+Barcode_Well, data = sdt.PA)
-
-bray_dist<- phyloseq::distance(PS3.PA2, method="bray", weighted=T)
-ordination<- ordinate(PS3.PA2, method="PCoA", distance=bray_dist)
-plot_ordination(PS3.PA2, ordination)+ 
-  theme(aspect.ratio=1)+
-  geom_point(size=5, alpha= 0.75)+
-  labs(tag= "D)")+
-  theme_bw()+
-  scale_colour_brewer(type="qual", palette="Paired")+
-  theme(text = element_text(size=16))
 
 ##Create biom format object for PICRUSt2
 require("biomformat")
