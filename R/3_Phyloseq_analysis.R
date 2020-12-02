@@ -916,8 +916,6 @@ png("Figures/Q4_Alphadiv_Fecal.png", units = 'in', res = 300, width=14, height=1
 grid.arrange(P, Q)
 dev.off()
 
-
-
 ##Create biom format object for PICRUSt2
 require("biomformat")
 asvmat.rare<- as.matrix(PS3@otu_table)
