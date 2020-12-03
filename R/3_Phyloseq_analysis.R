@@ -180,6 +180,7 @@ sdt.PA$Replicate<- paste(sdt.PA$System, sdt.PA$Compartment, sep = ".")
 sdt.PA%>%
   select(InfectionStatus,AnimalSpecies,Live,Compartment,System, Replicate)%>%
   distinct()->sdt.PA2
+sdt.PA2$InfectionStatus[is.na(sdt.PA2$InfectionStatus)] <- "Worm" ##Remove NAs
 sdt.PA2<- sample_data(sdt.PA2)
 sample_names(sdt.PA2) <- sdt.PA2$Replicate
 
@@ -310,37 +311,53 @@ wunifrac_dist<- phyloseq::distance(PS3.pig2,
                                    method="unifrac", weighted=F)
 ordination<- ordinate(PS3.pig2,
                       method="PCoA", distance=wunifrac_dist)
-plot_ordination(PS3.pig2, ordination)+ 
+plot_ordination(PS3.pig2, ordination, shape= "InfectionStatus")+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
+  geom_point(size=3, aes(color= Compartment))+
+  geom_point(color= "black", size= 1.5)+
   labs(title = "Unweighted UniFrac",tag= "A)")+
   theme_bw()+
-  theme(text = element_text(size=16))
+  theme(text = element_text(size=16))+
+  labs(colour = "Compartment")+
+  labs(shape = "Infection Status")
 
+vegan::adonis(wunifrac_dist~ Compartment + System + InfectionStatus,
+              permutations = 999, data = sdt.pig2) ##Technical factors can't be included for merged samples
+##Just compartment is significant 
 # PCoA plot using the weighted UniFrac as distance
 unifrac_dist<- phyloseq::distance(PS3.pig2,
                                   method="unifrac", weighted=T)
 ordination<- ordinate(PS3.pig2,
                       method="PCoA", distance=unifrac_dist)
-plot_ordination(PS3.pig2, ordination)+ 
+plot_ordination(PS3.pig2, ordination, shape= "InfectionStatus")+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
-  labs(title = "Weighted UniFrac", tag= "B)")+
+  geom_point(size=3, aes(color= Compartment))+
+  geom_point(color= "black", size= 1.5)+
+  labs(title = "Weighted UniFrac",tag= "A)")+
   theme_bw()+
-  theme(text = element_text(size=16))
+  theme(text = element_text(size=16))+
+  labs(colour = "Compartment")+
+  labs(shape = "Infection Status")
 
+vegan::adonis(unifrac_dist~ Compartment + System + InfectionStatus,
+              permutations = 999, data = sdt.pig2) ##Technical factors can't be included for merged samples
+##Just compartment is significant 
 # PCoA plot using Bray-Curtis as distance
 bray_dist<- phyloseq::distance(PS3.pig2, 
                                method="bray", weighted=T)
 ordination<- ordinate(PS3.pig2,
                       method="PCoA", distance=bray_dist)
-plot_ordination(PS3.pig2, ordination)+ 
+plot_ordination(PS3.pig2, ordination, shape= "InfectionStatus")+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
-  labs(title = "Bray-Curtis dissimilarity", tag= "A)")+
+  geom_point(size=3, aes(color= Compartment))+
+  geom_point(color= "black", size= 1.5)+
+  labs(title = "Bray-Curtis dissimilarity",tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  geom_text (x = 0.00, y = -0.35, label = paste ("Bray-Curtis~ Compartment+Pig+Infection, \n PERMANOVA, Compartment p= 0.001; R-squared= 0.2665"))-> C
+  labs(colour = "Compartment")+
+  labs(shape = "Infection Status")+
+  geom_text (x = 0.00, y = -0.35, show.legend = F,
+             label = paste ("Bray-Curtis~ Compartment+Pig+Infection, \n PERMANOVA, Compartment p= 0.001; R-squared= 0.2665"))-> C
 
 ##Adonis PERMANOVA
 #Is beta diversity vary function of the compartment, pig, infection status or technical predictors
@@ -463,7 +480,8 @@ dev.off()
 ###How does the Ascaris microbiome compare to that of the porcine intestinal microbiome?
 ###General comparison between infected pigs (Jejunum and Ascaris and not merged replicates)
 ### Infected vs Non Infected
-sdt.PA2$InfectionStatus[is.na(sdt.PA2$InfectionStatus)] <- "Worm" ##Remove NAs
+#sample_data(PS3.PA2)[is.na(sample_data(PS3.PA2)$InfectionStatus)] <- "Worm" ##Remove NAs
+#sdt.PA2$InfectionStatus[is.na(sdt.PA2$InfectionStatus)] <- "Worm" ##Remove NAs
 sdt.PA2%>%
   mutate(Compartment = fct_relevel(Compartment, 
                                    "Duodenum", "Jejunum", "Ileum", 
@@ -573,13 +591,16 @@ bray_dist<- phyloseq::distance(PS3.PA2,
                                method="bray", weighted=T)
 ordination<- ordinate(PS3.PA2,
                       method="PCoA", distance=bray_dist)
-plot_ordination(PS3.PA2, ordination)+ 
+plot_ordination(PS3.PA2, ordination, shape= "InfectionStatus")+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= Compartment), color= "black")+
+  geom_point(size=3, aes(color= Compartment), na.rm = F)+
+  geom_point(color= "black", size= 1.5, na.rm = F)+
   labs(title = "Bray-Curtis dissimilarity",tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  geom_text (x = 0, y = 0.35, 
+  labs(colour = "Compartment")+
+  labs(shape = "Infection Status")+
+  geom_text (x = 0.00, y = 0.35, show.legend = F,
              label = paste ("Bray-Curtis~ Compartment+Pig+Infection, \n PERMANOVA, Compartment p= 0.001; R^2= 0.3009"))-> H
 
 ##Adonis PERMANOVA
