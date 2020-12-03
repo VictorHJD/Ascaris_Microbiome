@@ -1007,6 +1007,39 @@ png("Figures/Q5_Alphadiv_Individual.png", units = 'in', res = 300, width=14, hei
 grid.arrange(R)
 dev.off()
 
+###Create a new PS based on this data
+PS.tmp<- subset_samples(PS3.pig2, InfectionStatus!="Non_infected")
+PS.tmp<- subset_samples(PS.tmp, Compartment%in%c("Jejunum", "Duodenum", "Ascaris"))
+# Extract abundance matrix from the phyloseq object
+otu.tmp<- as(otu_table(PS.tmp), "matrix")
+otu.tmp <- t(otu.tmp)
+# Extract tax table from the phyloseq object
+tax.tmp<- as(tax_table(PS.tmp), "matrix")
+
+PS.tmp2<- subset_samples(PS3.Asc, Live!="SH")
+otu.tmp2<- as(otu_table(PS.tmp2), "matrix")
+
+otu.Asc3<- merge(otu.tmp, otu.tmp2, all= T)
+rownames(otu.Asc3)
+##Create new Phyloseq 
+asv<- otu_table(otu.Asc3, taxa_are_rows = T)
+sample_names(asv)
+##2) Use sample dataframe and transform it to "sample data" format
+sample<- sample_data(sdt.Asc3)
+sample_names(sample) <- sample_names(asv)
+##3) Use taxa matrix and transform it to "tax table" format
+tax<-tax_table(as.matrix(tax.tmp))
+taxa_names(tax)
+
+##ASV names and Tax table don't mach; check again the merging of matrices 
+#PS <- merge_phyloseq(asv, tax)
+
+###Add phylogenetic tree
+#require(ape)
+#phylotree<- rtree(ntaxa(PS), rooted=TRUE, tip.label=taxa_names(PS))
+
+#PS.Asc3 <- merge_phyloseq(asv, sample, tax, phylotree)
+
 ##Create biom format object for PICRUSt2
 require("biomformat")
 asvmat.rare<- as.matrix(PS3@otu_table)
