@@ -664,6 +664,10 @@ sdt.PA2%>%
   #facet_wrap(~InfectionStatus)+ 
   stat_pvalue_manual(stats.test, bracket.nudge.y = -.095, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->I
 
+PS3.PA2t<- transform_sample_counts(PS3.PA2, function(OTU) OTU/sum(OTU))
+plot_bar(PS3.PA2t, x="Sample", fill="Phylum") + facet_wrap(~Compartment, scales="free_x")+
+  geom_bar(aes(color=Phylum, fill=Phylum), stat="identity", position="stack")->U
+
 png("Figures/Q2_Alphadiv_Compartment.png", units = 'in', res = 300, width=14, height=14)
 grid.arrange(f, G)
 dev.off()
@@ -676,6 +680,9 @@ png("Figures/Q2_Betadiv_Distances_Compartment.png", units = 'in', res = 300, wid
 grid.arrange(I)
 dev.off()
 
+png("Figures/Q2_Compossition_Compartment.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(U)
+dev.off()
 ###Question 3: Does the Ascaris microbiome differ between male and female worms?
 ##
 ### Local Ascaris vs SH
@@ -815,7 +822,7 @@ plot_ordination(subset_samples(PS3.Asc, System!="SH"), ordination, shape= "WormS
   labs(colour = "Individual")+
   labs(shape = "Worm Sex")+
   geom_text (x = 0.10, y = 0.25, show.legend = F,
-             label = paste ("Bray-Curtis~ Individual+Sex, \n PERMANOVA, System p= 0.008; R^2= 0.2404"))-> N
+             label = paste ("Bray-Curtis~ Individual+Sex, \n PERMANOVA, Individual p= 0.019; R-squared= 0.2404"))-> N
 
 ##Adonis PERMANOVA
 #Is beta diversity vary function of the compartment, pig, infection status or technical predictors
@@ -945,6 +952,10 @@ bd.Fec ##Manually added to the plot
 write.csv(bd.Fec[[1]], "Tables/Q4_Permanova.csv")
 
 
+PS3.Fect<- transform_sample_counts(PS3.Fec, function(OTU) OTU/sum(OTU))
+plot_bar(PS3.Fect, x="Sample", fill="Phylum") + facet_wrap(~DPI, scales="free_x")+
+  geom_bar(aes(color=Phylum, fill=Phylum), stat="identity", position="stack")->V
+
 png("Figures/Q4_Alphadiv_Fecal.png", units = 'in', res = 300, width=14, height=14)
 grid.arrange(P, Q)
 dev.off()
@@ -964,6 +975,43 @@ sdt.Asc%>%
 
 rbind(sdt.Asc3, tmp)-> sdt.Asc3
 sdt.Asc3$InfectionStatus[is.na(sdt.Asc3$InfectionStatus)] <- "Worm" ##Remove NAs
+
+sdt.Asc3%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum","Ascaris"))%>%
+  wilcox_test(Chao1 ~ Compartment)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "Compartment")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q5_Compartment_2_Alpha.csv")
+
+sdt.Asc3%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon", "Ascaris"))%>%
+  wilcox_effsize(Chao1 ~ Compartment)
+
+##PLot 
+sdt.Asc3%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum","Ascaris"))%>%
+  ggplot(aes(x= Compartment, y= Chao1))+
+  geom_boxplot(color="black", alpha= 0.5, outlier.colour = "white")+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
+  xlab("Compartment")+
+  ylab("Diversity (Chao1 Index)")+
+  labs(tag= "A)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -.095, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")-> R
+
+png("Figures/Q5_Alphadiv_Compartment.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(R)
+dev.off()
 
 sdt.Asc3%>% 
   mutate(Compartment = fct_relevel(Compartment, 
@@ -1001,12 +1049,11 @@ sdt.Asc3%>%
   labs(tag= "A)", caption = get_pwc_label(stats.test))+
   theme_bw()+
   theme(text = element_text(size=16))+
-  stat_pvalue_manual(stats.test, bracket.nudge.y = -.095, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")-> R
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -.095, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")-> S
 
 png("Figures/Q5_Alphadiv_Individual.png", units = 'in', res = 300, width=14, height=14)
-grid.arrange(R)
+grid.arrange(S)
 dev.off()
-
 ###Create a new PS based on this data
 PS.tmp<- subset_samples(PS3.pig2, InfectionStatus!="Non_infected")
 PS.tmp<- subset_samples(PS.tmp, Compartment%in%c("Jejunum", "Duodenum", "Ascaris"))
