@@ -1,2 +1,2 @@
-"",".y.","group1","group2","n1","n2","statistic","p","p.adj","p.adj.signif","y.position","xmin","xmax"
-"1","Chao1","Female","Male",12,11,48,0.288,0.288,"ns",557.41716,1,2
+"",".y.","group1","group2","n1","n2","statistic","p","p.signif","y.position","xmin","xmax"
+"1","Chao1","Female","Male",12,11,48,0.288,"ns",557.41716,1,2

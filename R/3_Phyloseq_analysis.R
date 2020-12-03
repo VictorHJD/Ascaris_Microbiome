@@ -682,7 +682,7 @@ dev.off()
 sdt.Asc%>% 
   #dplyr::group_by(System)%>%
   wilcox_test(Chao1 ~ Live)%>%
-  adjust_pvalue(method = "bonferroni") %>%
+  #adjust_pvalue(method = "bonferroni") %>%
   add_significance()%>%
   add_xy_position(x = "System")-> stats.test
 
@@ -704,7 +704,7 @@ sdt.Asc%>%
   labs(tag= "A)", caption = get_pwc_label(stats.test))+
   theme_bw()+
   theme(text = element_text(size=16))+
-  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p.adj}{p.adj.signif}")-> J
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p}{p.signif}")-> J
 
 # PCoA plot using Bray-Curtis as distance
 bray_dist<- phyloseq::distance(PS3.Asc, 
@@ -773,7 +773,7 @@ sdt.Asc%>%
 sdt.Asc%>% 
   dplyr::filter(!System%in%("SH"))%>%
   wilcox_test(Chao1 ~ WormSex)%>%
-  adjust_pvalue(method = "bonferroni") %>%
+  #adjust_pvalue(method = "bonferroni") %>%
   add_significance()%>%
   add_xy_position(x = "WormSex")-> stats.test
 
@@ -797,21 +797,25 @@ sdt.Asc%>%
   labs(tag= "A)", caption = get_pwc_label(stats.test))+
   theme_bw()+
   theme(text = element_text(size=16))+
-  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p.adj}{p.adj.signif}")-> M
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -2, hide.ns = F,label = "{p}{p.signif}")-> M
 
 # PCoA plot using Bray-Curtis as distance
 bray_dist<- phyloseq::distance(subset_samples(PS3.Asc, System!="SH"), 
                                method="bray", weighted=T)
 ordination<- ordinate(subset_samples(PS3.Asc, System!="SH"),
                       method="PCoA", distance=bray_dist)
-plot_ordination(subset_samples(PS3.Asc, System!="SH"), ordination)+ 
+
+plot_ordination(subset_samples(PS3.Asc, System!="SH"), ordination, shape= "WormSex")+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= WormSex), color= "black")+
-  labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
+  geom_point(size=3, aes(color= System), na.rm = F)+
+  geom_point(color= "black", size= 1.5, na.rm = F)+
+  labs(title = "Bray-Curtis dissimilarity",tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  geom_text (x = 0, y = 0.2, 
-             label = paste ("Bray-Curtis~ System+Sex, \n PERMANOVA, System p= 0.008; R^2= 0.2404"))-> N
+  labs(colour = "Individual")+
+  labs(shape = "Worm Sex")+
+  geom_text (x = 0.10, y = 0.25, show.legend = F,
+             label = paste ("Bray-Curtis~ Individual+Sex, \n PERMANOVA, System p= 0.008; R^2= 0.2404"))-> N
 
 ##Adonis PERMANOVA
 #Is beta diversity vary function of the compartment, pig, infection status or technical predictors
@@ -883,6 +887,7 @@ dev.off()
 
 ###Additional data --> Track microbiome in fecal samples
 sdt.fec%>%
+  dplyr::group_by(InfectionStatus)%>%
   mutate(DPI = fct_relevel(DPI, "2", "14", "21", "42", "49"))%>%
   wilcox_test(Chao1 ~ DPI)%>%
   adjust_pvalue(method = "bonferroni") %>%
@@ -895,13 +900,15 @@ x$groups<- NULL
 write.csv(x, "Tables/Q4_Track_infection_Diversity.csv")
 
 sdt.fec%>%
+  dplyr::group_by(InfectionStatus)%>%
   mutate(DPI = fct_relevel(DPI, "2", "14", "21", "42", "49"))%>%
   wilcox_effsize(Chao1 ~ DPI)
 
 sdt.fec%>%
+  dplyr::group_by(InfectionStatus)%>%
   mutate(DPI = fct_relevel(DPI, "2", "14", "21", "42", "49"))%>%
   ggplot(aes(x= DPI, y= Chao1))+
-  geom_boxplot(color= "black")+
+  geom_boxplot(color= "black", outlier.colour = "white")+
   geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= System), color= "black")+
   xlab("Day post infection")+
   ylab("Diversity (Chao1 Index)")+
@@ -909,6 +916,7 @@ sdt.fec%>%
   labs(tag= "A)", caption = get_pwc_label(stats.test))+
   theme_bw()+
   theme(text = element_text(size=16))+
+  facet_wrap(~InfectionStatus)+
   stat_pvalue_manual(stats.test, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")->P
 
 # PCoA plot using Bray-Curtis as distance
@@ -916,18 +924,22 @@ bray_dist<- phyloseq::distance(PS3.Fec,
                                method="bray", weighted=T)
 ordination<- ordinate(PS3.Fec,
                       method="PCoA", distance=bray_dist)
-plot_ordination(PS3.Fec, ordination)+ 
+
+plot_ordination(PS3.Fec, ordination, shape= "InfectionStatus")+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= DPI), color= "black")+
-  labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
+  geom_point(size=3, aes(color= DPI))+
+  geom_point(color= "black", size= 1.5)+
+  labs(title = "Bray-Curtis dissimilarity",tag= "A)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  geom_text (x = 0, y = 0.4, 
-             label = paste ("Bray-Curtis~ System+DPI, \n PERMANOVA, DPI p= 0.001; R^2= 0.3601"))->Q
+  labs(colour = "Compartment")+
+  labs(shape = "Infection Status")+
+  geom_text (x = 0.20, y = 0.35, show.legend = F,
+             label = paste ("Bray-Curtis~ DPI+Infection+System, \n PERMANOVA, DPI p= 0.001; R-squared= 0.3615"))->Q
 
 ##Adonis PERMANOVA
 #Is beta diversity vary function of the compartment, pig, infection status or technical predictors
-bd.Fec<- vegan::adonis(bray_dist~ System+DPI,
+bd.Fec<- vegan::adonis(bray_dist~ DPI+InfectionStatus+System,
                        permutations = 999, data = sdt.fec)
 bd.Fec ##Manually added to the plot 
 write.csv(bd.Fec[[1]], "Tables/Q4_Permanova.csv")
@@ -935,6 +947,64 @@ write.csv(bd.Fec[[1]], "Tables/Q4_Permanova.csv")
 
 png("Figures/Q4_Alphadiv_Fecal.png", units = 'in', res = 300, width=14, height=14)
 grid.arrange(P, Q)
+dev.off()
+
+###Question 5: Site of infection (jejunum vs Ascaris) + individual comparisons
+sdt.pig2%>%
+  dplyr::filter(InfectionStatus!="Non_infected")%>%
+  dplyr::filter(Compartment%in%c("Jejunum", "Duodenum", "Ascaris"))%>%
+  select(Observed, Chao1, se.chao1, ACE, se.ACE, Shannon, Simpson, InvSimpson,
+         Fisher, InfectionStatus,AnimalSpecies,WormSex,Live,Compartment,System)-> tmp
+
+##Select individual worms from infection (move SH)
+sdt.Asc%>%
+  dplyr::filter(Live!="SH")%>%
+  select(Observed, Chao1, se.chao1, ACE, se.ACE, Shannon, Simpson, InvSimpson,
+         Fisher, InfectionStatus,AnimalSpecies,WormSex,Live,Compartment,System)-> sdt.Asc3
+
+rbind(sdt.Asc3, tmp)-> sdt.Asc3
+sdt.Asc3$InfectionStatus[is.na(sdt.Asc3$InfectionStatus)] <- "Worm" ##Remove NAs
+
+sdt.Asc3%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum","Ascaris"))%>%
+  dplyr::group_by(System)%>%
+  wilcox_test(Chao1 ~ Compartment)%>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance()%>%
+  add_xy_position(x = "System")-> stats.test
+
+##Save statistical analysis
+x <- stats.test
+x$groups<- NULL
+write.csv(x, "Tables/Q5_Compartment_Alpha.csv")
+
+sdt.Asc3%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum", "Ileum", 
+                                   "Cecum", "Colon", "Ascaris"))%>%
+  #dplyr::group_by(InfectionStatus)%>%
+  wilcox_effsize(Chao1 ~ Compartment)
+
+##PLot 
+sdt.Asc3%>% 
+  mutate(Compartment = fct_relevel(Compartment, 
+                                   "Duodenum", "Jejunum","Ascaris"))%>%
+  dplyr::group_by(System)%>%
+  ggplot(aes(x= System, y= Chao1))+
+  geom_boxplot(aes(color= Compartment), alpha= 0.5, outlier.colour = "white")+
+  scale_color_manual(values = c("#F8766D", "#619CFF", "#00BA38"),
+                     aesthetics = c("colour", "fill"))+
+  geom_jitter(shape=21, position=position_jitter(0.2), size=3, aes(fill= Compartment), color= "black")+
+  xlab("Individual")+
+  ylab("Diversity (Chao1 Index)")+
+  labs(tag= "A)", caption = get_pwc_label(stats.test))+
+  theme_bw()+
+  theme(text = element_text(size=16))+
+  stat_pvalue_manual(stats.test, bracket.nudge.y = -.095, hide.ns = TRUE,label = "{p.adj}{p.adj.signif}")-> R
+
+png("Figures/Q5_Alphadiv_Individual.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(R)
 dev.off()
 
 ##Create biom format object for PICRUSt2
