@@ -718,14 +718,17 @@ bray_dist<- phyloseq::distance(PS3.Asc,
                                method="bray", weighted=T)
 ordination<- ordinate(PS3.Asc,
                       method="PCoA", distance=bray_dist)
-plot_ordination(PS3.Asc, ordination)+ 
+plot_ordination(PS3.Asc, ordination, shape= "WormSex")+ 
   theme(aspect.ratio=1)+
-  geom_point(shape=21, size=3, aes(fill= System), color= "black")+
+  geom_point(size=3, aes(color= System), na.rm = F)+
+  geom_point(color= "black", size= 1.5, na.rm = F)+
   labs(title = "Bray-Curtis dissimilarity",tag= "B)")+
   theme_bw()+
   theme(text = element_text(size=16))+
-  geom_text (x = -.20, y = 0.0, 
-             label = paste ("Bray-Curtis~ System+Origin+Sex, \n PERMANOVA, System p= 0.001; R^2= 0.3189"))-> K
+  labs(colour = "Compartment")+
+  labs(shape = "Worm Sex")+
+  geom_text (x = -.20, y = 0.0, show.legend = F,
+             label = paste ("Bray-Curtis~ System+Origin+Sex, \n PERMANOVA, System p= 0.001; R-squared= 0.3189"))-> K
 
 ##Adonis PERMANOVA
 #Is beta diversity vary function of the compartment, pig, infection status or technical predictors
@@ -892,6 +895,9 @@ png("Figures/Q3_Betadiv_Distances_Sex.png", units = 'in', res = 300, width=10, h
 grid.arrange(O)
 dev.off()
 
+#png("Figures/Q3_Div_Worm_Sex_SH.png", units = 'in', res = 300, width=14, height=14)
+#grid.arrange(M, K)
+#dev.off()
 ###Additional data --> Track microbiome in fecal samples
 sdt.fec%>%
   dplyr::group_by(InfectionStatus)%>%
@@ -950,7 +956,6 @@ bd.Fec<- vegan::adonis(bray_dist~ DPI+InfectionStatus+System,
                        permutations = 999, data = sdt.fec)
 bd.Fec ##Manually added to the plot 
 write.csv(bd.Fec[[1]], "Tables/Q4_Permanova.csv")
-
 
 PS3.Fect<- transform_sample_counts(PS3.Fec, function(OTU) OTU/sum(OTU))
 plot_bar(PS3.Fect, x="Sample", fill="Phylum") + facet_wrap(~DPI, scales="free_x")+
