@@ -99,3 +99,17 @@ ggplot(Bac.sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) +
 png("Figures/Q6_Diffferential_Genus_FU_SH.png", units = 'in', res = 300, width=14, height=14)
 grid.arrange(B)
 dev.off()
+
+###Comparison Ascaris Pig Sex
+##Differences by phyla
+Bac.diagdds <- phyloseq_to_deseq2(subset_taxa(PS.Asc.genus, Kingdom%in%"Bacteria"), ~ WormSex)
+Bac.diagdds <- DESeq(Bac.diagdds, test="LRT", fitType="parametric", reduced= ~ 1)
+
+Bac.res <- results(Bac.diagdds, cooksCutoff = FALSE)
+alpha <- 0.05
+Bac.sigtab <- Bac.res[which(Bac.res$padj < alpha), ]
+Bac.sigtab <- cbind(as(Bac.sigtab, "data.frame"), as(tax_table(PS.Asc.genus)[rownames(Bac.sigtab), ], "matrix"))
+rownames(Bac.sigtab) <- NULL
+Bac.sigtab
+
+##No Genus is significative "expressed" in either male or female worms 
