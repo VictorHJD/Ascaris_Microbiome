@@ -6,6 +6,7 @@ library(tidyverse)
 library(data.table)
 library(scales)
 
+reRun <- FALSE
 ##Load data (not rarefied or cleaned)
 if(!exists("PS")){
   if(isTRUE(reRun)){
@@ -20,39 +21,42 @@ if(!exists("PS")){
 
 ##Glom to genus level 
 PS.raw.genus <- tax_glom(PS, "Genus")
+##Eliminate "Negative" controls an faeces from the analysis 
+PS.raw.genus<- subset_samples(PS.raw.genus, !(Compartment%in%c("Faeces", "Negative")))
+##Select just Jejunum and Ascaris from infected individuals 
+PS.raw.genus<- subset_samples(PS.raw.genus, !(Compartment%in%c("Duodenum", "Colon", "Cecum", "Ileum")))
+PS.raw.genus<- subset_samples(PS.raw.genus, !(System%in%c("SH, Pig6, Pig7, Pig8, Pig9")))
 
 ##Differences by phyla
-
 Bac.diagdds <- phyloseq_to_deseq2(subset_taxa(PS.raw.genus, Kingdom%in%"Bacteria"), ~ AnimalSpecies)
 Bac.diagdds <- DESeq(Bac.diagdds, test="LRT", fitType="parametric", reduced= ~ 1)
 
 Bac.res <- results(Bac.diagdds, cooksCutoff = FALSE)
 alpha <- 0.05
 Bac.sigtab <- Bac.res[which(Bac.res$padj < alpha), ]
-Bac.sigtab <- cbind(as(Bac.sigtab, "data.frame"), as(tax_table(PS.genus)[rownames(Bac.sigtab), ], "matrix"))
+Bac.sigtab <- cbind(as(Bac.sigtab, "data.frame"), as(tax_table(PS.raw.genus)[rownames(Bac.sigtab), ], "matrix"))
 rownames(Bac.sigtab) <- NULL
 Bac.sigtab
 
-get.sigtab.plot <- function (sigtab){
-  sigtab$Phylum <- factor(as.character(sigtab$Phylum), levels=main_phyla)
-  ## Genus order
-  x <- tapply(sigtab$log2FoldChange, sigtab$Genus, function(x) max(x))
-  x <- sort(x, TRUE)
-  sigtab$Genus <- factor(as.character(sigtab$Genus), levels=names(x))
-  ggplot(sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum, label=scientific(padj))) +
-    geom_point(size=6) +
-    geom_text(vjust=1.6, color="black")+
-    theme_bw()+
-    scale_color_brewer(palette = "Set1") +
-    theme(axis.text.x = element_text(angle = -45, hjust = 0, vjust=1))
-}
+# Phylum order
+x <- tapply(Bac.sigtab$log2FoldChange, Bac.sigtab$Phylum, function(x) max(x))
+x <- sort(x, TRUE)
+Bac.sigtab$Phylum <- factor(as.character(Bac.sigtab$Phylum), levels=names(x))
+# Genus order
+x <- tapply(Bac.sigtab$log2FoldChange, Bac.sigtab$Genus, function(x) max(x))
+x <- sort(x, TRUE)
+Bac.sigtab$Genus <- factor(as.character(Bac.sigtab$Genus), levels=names(x))
 
-plot.bacterial.diff <- get.sigtab.plot(Bac.sigtab)
-
-devSVG("figures/figures_Hyena/Figure3d_single_diff.svg")
-plot.bacterial.diff
-dev.off()
-
-pdf("figures/figures_Hyena/Figure3d_single_diff.pdf")
-plot.bacterial.diff
+ggplot(Bac.sigtab, aes(x=Genus, y=log2FoldChange, color=Phylum)) +
+  geom_point(shape=21, position=position_jitter(0.2), size=3, aes(fill= Phylum), color= "black") + 
+  scale_fill_brewer(palette = "Set1")+
+  coord_flip()+
+  geom_hline(aes(yintercept = 0), color = "gray70", size = 0.6)+
+  xlab("Bacterial Genus")+
+  ylab("Ascaris <-- Log 2 Fold Change --> Jejunum")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5), text = element_text(size=16))+
+  theme_bw()-> A
+  
+png("Figures/Q6_Diffferential_Genus_Jejunum_Worms.png", units = 'in', res = 300, width=14, height=14)
+grid.arrange(A)
 dev.off()
