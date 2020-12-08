@@ -27,10 +27,14 @@ PS.raw.genus <- tax_glom(PS, "Genus")
 PS.raw.genus<- subset_samples(PS.raw.genus, !(Compartment%in%c("Faeces", "Negative")))
 ##Select just Jejunum and Ascaris from infected individuals 
 PS.PA.genus<- subset_samples(PS.raw.genus, !(Compartment%in%c("Duodenum", "Colon", "Cecum", "Ileum")))
-PS.PA.genus<- subset_samples(PS.PA.genus, !(System%in%c("SH, Pig6, Pig7, Pig8, Pig9")))
+PS.PA.genus<- subset_samples(PS.PA.genus, !(System%in%c("SH", "Pig6", "Pig7", "Pig8", "Pig9")))
 ##Select just Ascaris samples
 PS.Asc.genus<- subset_samples(PS.raw.genus, (Compartment%in%c("Ascaris")))
+##Select just Jejunum and Duodenum from Infected
+PS.PJD.genus<- subset_samples(PS.raw.genus, !(Compartment%in%c("Ascaris", "Colon", "Cecum", "Ileum")))
+PS.PJD.genus<- subset_samples(PS.PJD.genus, !(System%in%c("Pig6", "Pig7", "Pig8", "Pig9")))
 
+### Comparison Pig Jejunum vs Ascaris from Jejunum
 ##Differences by phyla
 Bac.diagdds <- phyloseq_to_deseq2(subset_taxa(PS.PA.genus, Kingdom%in%"Bacteria"), ~ AnimalSpecies)
 Bac.diagdds <- DESeq(Bac.diagdds, test="LRT", fitType="parametric", reduced= ~ 1)
@@ -65,7 +69,7 @@ png("Figures/Q6_Diffferential_Genus_Jejunum_Worms.png", units = 'in', res = 300,
 grid.arrange(A)
 dev.off()
 
-###Comparison Ascaris Pig vs SH
+### Comparison Ascaris Pig vs SH
 ##Differences by phyla
 Bac.diagdds <- phyloseq_to_deseq2(subset_taxa(PS.Asc.genus, Kingdom%in%"Bacteria"), ~ Live)
 Bac.diagdds <- DESeq(Bac.diagdds, test="LRT", fitType="parametric", reduced= ~ 1)
@@ -100,7 +104,7 @@ png("Figures/Q6_Diffferential_Genus_FU_SH.png", units = 'in', res = 300, width=1
 grid.arrange(B)
 dev.off()
 
-###Comparison Ascaris Pig Sex
+### Comparison Ascaris Pig Sex
 ##Differences by phyla
 Bac.diagdds <- phyloseq_to_deseq2(subset_taxa(PS.Asc.genus, Kingdom%in%"Bacteria"), ~ WormSex)
 Bac.diagdds <- DESeq(Bac.diagdds, test="LRT", fitType="parametric", reduced= ~ 1)
@@ -113,3 +117,17 @@ rownames(Bac.sigtab) <- NULL
 Bac.sigtab
 
 ##No Genus is significative "expressed" in either male or female worms 
+
+### Comparison Jejunum Pig vs Duodenum (Infected Pigs)
+##Differences by phyla
+Bac.diagdds <- phyloseq_to_deseq2(subset_taxa(PS.PJD.genus, Kingdom%in%"Bacteria"), ~ Compartment)
+Bac.diagdds <- DESeq(Bac.diagdds, test="LRT", fitType="parametric", reduced= ~ 1)
+
+Bac.res <- results(Bac.diagdds, cooksCutoff = FALSE)
+alpha <- 0.05
+Bac.sigtab <- Bac.res[which(Bac.res$padj < alpha), ]
+Bac.sigtab <- cbind(as(Bac.sigtab, "data.frame"), as(tax_table(PS.PJD.genus)[rownames(Bac.sigtab), ], "matrix"))
+rownames(Bac.sigtab) <- NULL
+Bac.sigtab
+
+##Just a genus from Succinivibrionaceae was significative over represented in duodenum 
