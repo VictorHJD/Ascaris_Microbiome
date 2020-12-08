@@ -64,9 +64,13 @@ vegan::rarecurve(t(otu_table(PS3)), step=50, cex=0.5)
 PS3<- rarefy_even_depth(PS3, rngseed=2020, sample.size=min(sample_sums(PS3)), replace=F)
 readcount(PS3)
 
+saveRDS(PS3, file="/SAN/Victors_playground/Ascaris_Microbiome/output/PhyloSeqRare.Rds")
 ## Merge ASVs that have the same taxonomy at a certain taxonomic rank (in this case Phylum and Family)
 PS.Fam<-  tax_glom(PS3, "Family", NArm = F)
 summarize_phyloseq(PS.Fam)
+
+PS.Gen<-  tax_glom(PS3, "Genus", NArm = T)
+summarize_phyloseq(PS.Gen)
 
 PS.Phy<-  tax_glom(PS3, "Phylum", NArm = F)
 summarize_phyloseq(PS.Phy)
@@ -1059,6 +1063,7 @@ sdt.Asc3%>%
 png("Figures/Q5_Alphadiv_Individual.png", units = 'in', res = 300, width=14, height=14)
 grid.arrange(S)
 dev.off()
+
 ###Create a new PS based on this data
 PS.tmp<- subset_samples(PS3.pig2, InfectionStatus!="Non_infected")
 PS.tmp<- subset_samples(PS.tmp, Compartment%in%c("Jejunum", "Duodenum", "Ascaris"))
